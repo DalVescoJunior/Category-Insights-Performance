@@ -230,16 +230,16 @@
         <div class="cc-card-head"><h2>Days in stock</h2><span class="cc-note">Stock value by days since receipt</span></div>
         <div class="cc-chart" id="ch-age" data-source="aging"></div>
       </div>
-      <div class="cc-card cc-card-wide" id="card-expired">
-        <div class="cc-card-head"><h2>Expired stock</h2><span class="cc-note">Past its expiry date: block, write off or claim from the supplier</span></div>
-        <div class="cc-scroll">
-          <table class="cc-table" id="tbl-expired" data-source="sku" data-row-key="item_code,hub"></table>
-        </div>
-      </div>
       <div class="cc-card cc-card-wide" id="card-expiring">
         <div class="cc-card-head"><h2>Expiring within 30 days</h2><span class="cc-note">Still sellable: sell, bundle or move these first</span></div>
         <div class="cc-scroll">
           <table class="cc-table" id="tbl-expiring" data-source="sku" data-row-key="item_code,hub"></table>
+        </div>
+      </div>
+      <div class="cc-card cc-card-wide" id="card-expired">
+        <div class="cc-card-head"><h2>Expired stock</h2><span class="cc-note">Past its expiry date: block, write off or claim from the supplier</span></div>
+        <div class="cc-scroll">
+          <table class="cc-table" id="tbl-expired" data-source="sku" data-row-key="item_code,hub"></table>
         </div>
       </div>
     </div>
@@ -751,6 +751,8 @@
   }
 
   // ---------- aging tab ----------
+  const fmtQty = (v, uom) => (N(v) === null ? '—' : d3.format(',.1~f')(N(v)) + ' ' + String(uom || '').toLowerCase());
+  const fmtCost = (v, uom) => (N(v) === null ? '—' : d3.format(',.2f')(N(v)) + ' / ' + String(uom || '').toLowerCase());
   function drawExpiry() {
     const brand = params().brand;
     const rows = inScope(rowsOf('sku')).filter((r) => !brand || r.brand === brand);
@@ -759,7 +761,9 @@
       { field: 'description', label: 'Item', cls: 'cc-name cc-wrap' },
       { field: 'hub', label: 'Hub' },
       { field: 'brand', label: 'Brand', cls: 'cc-muted' },
-      { field: 'expired_value', label: 'Expired value', num: true, fmt: (v) => el('span', 'cc-bad', fmtMoney(v)) },
+      { field: 'expired_qty', label: 'Quantity', num: true, fmt: (v, r) => fmtQty(v, r.uom) },
+      { field: 'expired_unit_cost', label: 'Cost price', num: true, fmt: (v, r) => fmtCost(v, r.uom) },
+      { field: 'expired_value', label: 'Total value', num: true, fmt: (v) => el('span', 'cc-bad', fmtMoney(v)) },
       { field: 'blocked_value', label: 'Blocked or QI', num: true, fmt: (v) => el('span', N(v) > 0 ? '' : 'cc-muted', fmtMoney(v)) },
       { field: 'soh_value', label: 'Stock value', num: true, fmt: fmtMoney },
       { field: 'status', label: 'Status', fmt: (v) => chip(v, STATUS_TONE[v]) },
@@ -770,7 +774,9 @@
       { field: 'description', label: 'Item', cls: 'cc-name cc-wrap' },
       { field: 'hub', label: 'Hub' },
       { field: 'brand', label: 'Brand', cls: 'cc-muted' },
-      { field: 'at_risk_value', label: 'Expiring ≤30 d', num: true, fmt: (v) => el('span', 'cc-warn', fmtMoney(v)) },
+      { field: 'at_risk_qty', label: 'Quantity', num: true, fmt: (v, r) => fmtQty(v, r.uom) },
+      { field: 'at_risk_unit_cost', label: 'Cost price', num: true, fmt: (v, r) => fmtCost(v, r.uom) },
+      { field: 'at_risk_value', label: 'Total value', num: true, fmt: (v) => el('span', 'cc-warn', fmtMoney(v)) },
       { field: 'days_to_expiry', label: 'Days to expiry', num: true, fmt: (v) => (N(v) === null ? '—' : el('span', N(v) <= 7 ? 'cc-bad' : '', fmtDays(v) + ' d')) },
       { field: 'days_cover', label: 'Cover', num: true, fmt: (v) => (N(v) === null ? '—' : fmtDays(v) + ' d') },
       { field: 'avg_daily_qty', label: 'Sold / day', num: true, fmt: (v, r) => (N(v) === null ? '—' : d3.format(',.1f')(N(v)) + ' ' + String(r.uom).toLowerCase()) },

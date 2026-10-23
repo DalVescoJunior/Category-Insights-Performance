@@ -95,8 +95,19 @@ select item_code, org_code hub, description, category, manager, assistant, brand
             when status = 'Overstock' then 'Pause buying; push sell-out'
             when expired_value > 0 then 'Write off or return expired batch'
             when at_risk_value > 0 then 'Sell near-expiry batch first'
-            else '' end action
-from v_item_base;
+            else '' end action,
+       q.expired_qty, q.expired_unit_cost, q.at_risk_qty, q.at_risk_unit_cost
+from v_item_base ib
+left join (
+  -- quantities and average cost price per unit of the expired and the expiring (<= 30 days) batches
+  select b.item_code q_item, b.org_code q_org,
+         round(sum(b.qty) filter (where b.expiry_date < p.as_of), 1) expired_qty,
+         round(sum(b.value) filter (where b.expiry_date < p.as_of) / nullif(sum(b.qty) filter (where b.expiry_date < p.as_of), 0), 2) expired_unit_cost,
+         round(sum(b.qty) filter (where b.stock_type = 'Unrestricted' and b.expiry_date between p.as_of and p.as_of + 30), 1) at_risk_qty,
+         round(sum(b.value) filter (where b.stock_type = 'Unrestricted' and b.expiry_date between p.as_of and p.as_of + 30)
+               / nullif(sum(b.qty) filter (where b.stock_type = 'Unrestricted' and b.expiry_date between p.as_of and p.as_of + 30), 0), 2) at_risk_unit_cost
+  from stock_batch b, v_period p group by 1, 2
+) q on q.q_item = ib.item_code and q.q_org = ib.org_code;
 
 -- KPIs at three levels: all categories, each manager, each category.
 -- Forecast = month-to-date sales scaled by how last year's same month finished (seasonality-aware run rate)
