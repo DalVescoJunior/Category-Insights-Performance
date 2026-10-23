@@ -5,7 +5,10 @@ head = (root / 'public/pulse-head.html').read_text()
 top = (root / 'public/pulse-top.html').read_text()
 
 # sections: lines 117..279 (1-based), with the tile block 118..150 swapped for KPI cards
-sec = src[116:279]
+first = next(i for i, l in enumerate(src) if '<section class="cc-page" id="overview"' in l)
+script = next(i for i, l in enumerate(src) if l.strip() == '<script>')
+last = max(i for i in range(script) if src[i].strip() == '</section>')
+sec = src[first:last + 1]
 tiles_start = next(i for i, l in enumerate(sec) if 'id="cc-tiles"' in l)
 grid_start = next(i for i, l in enumerate(sec) if l.strip() == '<div class="cc-grid">')
 sec = sec[:tiles_start] + [
@@ -17,7 +20,7 @@ sections = re.sub(r' role="tabpanel" aria-labelledby="tab-\w+"', '', sections)
 sections = sections.replace('Click a brand to see its items in Stock &amp; cover', 'Click a brand to filter the page to it')
 sections = sections.replace('show under Customers &amp; margin', 'show under Customers &amp; Margin')
 
-js = '\n'.join(src[281:])
+js = '\n'.join(src[script:])
 
 def sub(old, new, count=1):
     global js

@@ -225,10 +225,16 @@
         <div class="cc-card-head"><h2>Days in stock</h2><span class="cc-note">Stock value by days since receipt</span></div>
         <div class="cc-chart" id="ch-age" data-source="aging"></div>
       </div>
-      <div class="cc-card cc-card-wide" id="card-expiry">
-        <div class="cc-card-head"><h2>Expired or expiring within 30 days</h2><span class="cc-note">Sell, bundle or move these first</span></div>
+      <div class="cc-card cc-card-wide" id="card-expired">
+        <div class="cc-card-head"><h2>Expired stock</h2><span class="cc-note">Past its expiry date: block, write off or claim from the supplier</span></div>
         <div class="cc-scroll">
-          <table class="cc-table" id="tbl-expiry" data-source="sku" data-row-key="item_code,hub"></table>
+          <table class="cc-table" id="tbl-expired" data-source="sku" data-row-key="item_code,hub"></table>
+        </div>
+      </div>
+      <div class="cc-card cc-card-wide" id="card-expiring">
+        <div class="cc-card-head"><h2>Expiring within 30 days</h2><span class="cc-note">Still sellable: sell, bundle or move these first</span></div>
+        <div class="cc-scroll">
+          <table class="cc-table" id="tbl-expiring" data-source="sku" data-row-key="item_code,hub"></table>
         </div>
       </div>
     </div>
@@ -699,19 +705,31 @@
 
   // ---------- aging tab ----------
   function drawExpiry() {
-    const t = $('#tbl-expiry'); if (failTable(t, 'sku')) return;
     const brand = params().brand;
-    const rows = inScope(rowsOf('sku')).filter((r) => (N(r.at_risk_value) > 0 || N(r.expired_value) > 0) && (!brand || r.brand === brand));
-    drawTable(t, rows, [
+    const rows = inScope(rowsOf('sku')).filter((r) => !brand || r.brand === brand);
+    const t1 = $('#tbl-expired');
+    if (!failTable(t1, 'sku')) drawTable(t1, rows.filter((r) => N(r.expired_value) > 0), [
       { field: 'description', label: 'Item', cls: 'cc-name cc-wrap' },
       { field: 'hub', label: 'Hub' },
-      { field: 'expired_value', label: 'Expired', num: true, fmt: (v) => el('span', N(v) > 0 ? 'cc-bad' : 'cc-muted', fmtMoney(v)) },
-      { field: 'at_risk_value', label: 'Expiring ≤30 d', num: true, fmt: (v) => el('span', N(v) > 0 ? 'cc-warn' : 'cc-muted', fmtMoney(v)) },
-      { field: 'days_to_expiry', label: 'Next expiry', num: true, fmt: (v) => (N(v) === null ? '—' : fmtDays(v) + ' d') },
-      { field: 'days_cover', label: 'Cover', num: true, fmt: (v) => (N(v) === null ? '—' : fmtDays(v) + ' d') },
+      { field: 'brand', label: 'Brand', cls: 'cc-muted' },
+      { field: 'expired_value', label: 'Expired value', num: true, fmt: (v) => el('span', 'cc-bad', fmtMoney(v)) },
+      { field: 'blocked_value', label: 'Blocked or QI', num: true, fmt: (v) => el('span', N(v) > 0 ? '' : 'cc-muted', fmtMoney(v)) },
+      { field: 'soh_value', label: 'Stock value', num: true, fmt: fmtMoney },
       { field: 'status', label: 'Status', fmt: (v) => chip(v, STATUS_TONE[v]) },
       { field: 'action', label: 'Suggested action', cls: 'cc-wrap' },
-    ], { sort: { field: 'at_risk_value', dir: -1 } });
+    ], { sort: { field: 'expired_value', dir: -1 }, empty: 'No expired stock for this view.' });
+    const t2 = $('#tbl-expiring');
+    if (!failTable(t2, 'sku')) drawTable(t2, rows.filter((r) => N(r.at_risk_value) > 0), [
+      { field: 'description', label: 'Item', cls: 'cc-name cc-wrap' },
+      { field: 'hub', label: 'Hub' },
+      { field: 'brand', label: 'Brand', cls: 'cc-muted' },
+      { field: 'at_risk_value', label: 'Expiring ≤30 d', num: true, fmt: (v) => el('span', 'cc-warn', fmtMoney(v)) },
+      { field: 'days_to_expiry', label: 'Days to expiry', num: true, fmt: (v) => (N(v) === null ? '—' : el('span', N(v) <= 7 ? 'cc-bad' : '', fmtDays(v) + ' d')) },
+      { field: 'days_cover', label: 'Cover', num: true, fmt: (v) => (N(v) === null ? '—' : fmtDays(v) + ' d') },
+      { field: 'avg_daily_qty', label: 'Sold / day', num: true, fmt: (v, r) => (N(v) === null ? '—' : d3.format(',.1f')(N(v)) + ' ' + String(r.uom).toLowerCase()) },
+      { field: 'status', label: 'Status', fmt: (v) => chip(v, STATUS_TONE[v]) },
+      { field: 'action', label: 'Suggested action', cls: 'cc-wrap' },
+    ], { sort: { field: 'days_to_expiry', dir: 1 }, empty: 'Nothing expires within 30 days for this view.' });
   }
 
   // ---------- customers tab ----------
