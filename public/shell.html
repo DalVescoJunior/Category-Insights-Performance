@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Category Performance Cockpit</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap">
+<style>
+/* Theme tokens the cockpit page is written against; light first, dark redefines them */
+:root {
+  color-scheme: light;
+  --font-anthropic-sans: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-anthropic-serif: "Source Serif 4", Georgia, "Times New Roman", serif;
+  --color-bg: #f6f7f5; --color-panel: #ffffff; --color-fg: #1d2420; --color-fg-muted: #5e6a63;
+  --color-border-line: #dfe4e0; --color-ok: #2f7d4f; --color-warn: #a86200; --color-bad: #c0362c;
+  --cds-chart-muted: #b3bdb7; --cds-chart-status-critical: #c0362c; --cds-chart-grid: #eceeec; --cds-chart-axis: #c4cbc6; --cds-chart-reference: #6d7a72;
+  --cds-surface-popover: #ffffff; --cds-border: #dfe4e0; --cds-shadow-popover: 0 6px 20px rgba(20, 30, 25, .12); --cds-text-secondary: #5e6a63;
+  --cds-series-1: #2a6f97;
+  --cds-radius: 8px; --cds-pad-xs: 4px; --cds-pad-sm: 8px; --cds-pad-md: 12px; --cds-pad-lg: 16px; --cds-pad-xl: 24px;
+  --cds-gap-xs: 4px; --cds-gap-sm: 8px; --cds-gap-md: 12px; --cds-gap-lg: 20px; --cds-gap-xl: 32px;
+  --cds-font-size-caption: 12.5px; --cds-font-size-body: 14px; --cds-font-size-heading: 15px; --cds-font-size-title: 26px; --cds-font-weight-medium: 500;
+  --cds-dur-slow: 240ms; --cds-ease-out: cubic-bezier(.2, .8, .2, 1);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --color-bg: #121614; --color-panel: #1a201d; --color-fg: #e7ece9; --color-fg-muted: #9aa69f;
+    --color-border-line: #2c3430; --color-ok: #5fbf85; --color-warn: #e0a043; --color-bad: #f07a6e;
+    --cds-chart-muted: #56615b; --cds-chart-status-critical: #f07a6e; --cds-chart-grid: #232a26; --cds-chart-axis: #3a443f; --cds-chart-reference: #a4b0a9;
+    --cds-surface-popover: #222925; --cds-border: #333c37; --cds-shadow-popover: 0 6px 20px rgba(0, 0, 0, .45); --cds-text-secondary: #9aa69f;
+    --cds-series-1: #6db3dc;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --color-bg: #121614; --color-panel: #1a201d; --color-fg: #e7ece9; --color-fg-muted: #9aa69f;
+  --color-border-line: #2c3430; --color-ok: #5fbf85; --color-warn: #e0a043; --color-bad: #f07a6e;
+  --cds-chart-muted: #56615b; --cds-chart-status-critical: #f07a6e; --cds-chart-grid: #232a26; --cds-chart-axis: #3a443f; --cds-chart-reference: #a4b0a9;
+  --cds-surface-popover: #222925; --cds-border: #333c37; --cds-shadow-popover: 0 6px 20px rgba(0, 0, 0, .45); --cds-text-secondary: #9aa69f;
+  --cds-series-1: #6db3dc;
+}
+html, body { margin: 0; background: var(--color-bg); color: var(--color-fg); font: 14px/1.4 var(--font-anthropic-sans); }
+#dash-root { max-width: 1320px; margin-inline: auto; padding-block: 20px 48px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+.dash-skeleton { display: inline-block; min-width: 4ch; color: transparent !important; border-radius: 4px; background: color-mix(in srgb, var(--color-fg) 10%, transparent); }
+</style>
+</head>
+<body>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
+<script>
+// Minimal stand-in for the dashboard runtime: loads each dataset from /api/data/<id>
+(function () {
+  const cache = {}; const subs = []; const defaults = { scope: 'All categories', brand: null };
+  let params = Object.assign({}, defaults); let queued = false;
+  const notify = () => { if (queued) return; queued = true; requestAnimationFrame(() => { queued = false; subs.forEach((fn) => { try { fn(); } catch (e) { console.error(e); } }); }); };
+  const load = (id, refresh) => {
+    cache[id] = Object.assign({ status: 'loading', data: [], columns: [], meta: [] }, cache[id] && cache[id].status === 'ok' ? { status: 'ok', data: cache[id].data, columns: cache[id].columns, refreshing: true } : {});
+    fetch('/api/data/' + encodeURIComponent(id) + (refresh ? '?refresh=1' : ''))
+      .then((r) => r.json().then((b) => ({ ok: r.ok, b })))
+      .then(({ ok, b }) => { cache[id] = ok ? { status: 'ok', data: b.rows, columns: b.columns, meta: [], refreshing: false } : { status: 'error', data: [], message: b.error }; notify(); })
+      .catch((e) => { cache[id] = { status: 'error', data: [], message: String(e) }; notify(); });
+  };
+  const css = (name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+  window.dash = {
+    data(id) { if (!cache[id]) load(id); return cache[id]; },
+    onData(fn) { subs.push(fn); fn(); },
+    params() { return Object.assign({}, params); },
+    setParams(o) { params = Object.assign({}, params, o); notify(); },
+    resetParams() { params = Object.assign({}, defaults); notify(); },
+    setLink(name) { try { history.replaceState(null, '', '#' + name); } catch (e) {} },
+    refresh(id) { load(id, true); },
+    get colors() { return [css('--cds-series-1'), '#7b5ea7', '#c27c2c', '#3c8c6e', '#b8487a', '#5b7fbf', '#8a8f3a', '#6b6b6b']; },
+    calc() {}, loader() {},
+  };
+  let w = window.innerWidth; window.addEventListener('resize', () => { if (window.innerWidth !== w) { w = window.innerWidth; notify(); } });
+  matchMedia('(prefers-color-scheme: dark)').addEventListener('change', notify);
+})();
+</script>
+<div id="dash-root">
+<!--PAGE-->
+</div>
+</body>
+</html>

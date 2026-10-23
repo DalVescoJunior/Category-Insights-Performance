@@ -1,0 +1,791 @@
+<style>
+/* Layout: sticky control bar, tabbed pages; every page reads top-down from headline tiles to rows to act on */
+.cc { --cc-accent: var(--color-fg); display: flex; flex-direction: column; gap: var(--cds-gap-lg); font-family: var(--font-anthropic-sans); color: var(--color-fg); }
+.cc * { box-sizing: border-box; }
+.cc [hidden] { display: none !important; }
+.cc-head { display: flex; flex-direction: column; gap: var(--cds-gap-sm); }
+.cc-titlebar { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: var(--cds-gap-sm); }
+.cc-title { margin: 0; font-family: var(--font-anthropic-serif); font-weight: 400; font-size: var(--cds-font-size-title); text-wrap: balance; }
+.cc-asof { color: var(--color-fg-muted); font-size: var(--cds-font-size-caption); }
+.cc-takeaway { margin: 0; max-width: 72ch; color: var(--color-fg); line-height: 1.5; }
+.cc-takeaway b { font-weight: 600; }
+.cc-controls { display: flex; flex-wrap: wrap; align-items: center; gap: var(--cds-gap-sm); }
+.cc-controls label { display: flex; align-items: center; gap: var(--cds-gap-xs); font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); }
+.cc-select, .cc-search { font: inherit; font-size: var(--cds-font-size-body); color: var(--color-fg); background: var(--color-panel); border: 1px solid var(--color-border-line); border-radius: var(--cds-radius); padding: var(--cds-pad-xs) var(--cds-pad-sm); min-width: 0; max-width: 100%; }
+.cc-search { width: min(100%, 16rem); }
+.cc-pill { font: inherit; font-size: var(--cds-font-size-caption); display: inline-flex; align-items: center; gap: var(--cds-gap-xs); border: 1px solid var(--color-border-line); background: var(--color-panel); color: var(--color-fg); border-radius: 999px; padding: 2px 10px; cursor: pointer; }
+.cc-pill[aria-pressed="true"] { border-color: var(--color-fg); box-shadow: inset 0 0 0 1px var(--color-fg); }
+.cc-pill:focus-visible, .cc-tab:focus-visible, .cc-table th button:focus-visible, .cc-link:focus-visible { outline: 2px solid var(--color-fg); outline-offset: 2px; }
+.cc-tabs { display: flex; gap: 2px; overflow-x: auto; border-bottom: 1px solid var(--color-border-line); }
+.cc-tab { font: inherit; font-size: var(--cds-font-size-body); background: none; border: 0; border-bottom: 2px solid transparent; color: var(--color-fg-muted); padding: var(--cds-pad-sm) var(--cds-pad-md); cursor: pointer; white-space: nowrap; }
+.cc-tab[aria-selected="true"] { color: var(--color-fg); border-bottom-color: var(--color-fg); font-weight: var(--cds-font-weight-medium); }
+.cc-page { display: flex; flex-direction: column; gap: var(--cds-gap-lg); }
+.cc-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 11.5rem), 1fr)); gap: var(--cds-gap-md); }
+.cc-tile { background: var(--color-panel); border: 1px solid var(--color-border-line); border-radius: var(--cds-radius); padding: var(--cds-pad-md) var(--cds-pad-lg); display: flex; flex-direction: column; gap: var(--cds-gap-xs); min-width: 0; position: relative; overflow: hidden; }
+.cc-tile::before { content: ""; position: absolute; inset: 0 auto 0 0; width: 3px; background: transparent; }
+.cc-tile[data-tone="bad"]::before { background: var(--color-bad); }
+.cc-tile[data-tone="warn"]::before { background: var(--color-warn); }
+.cc-tile[data-tone="ok"]::before { background: var(--color-ok); }
+.cc-tile-label { font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); }
+.cc-tile-value { font-family: var(--font-anthropic-serif); font-weight: 400; font-size: var(--cds-font-size-title); line-height: 1.15; font-variant-numeric: tabular-nums; }
+.cc-tile-sub { font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); line-height: 1.45; }
+.cc-tile-sub b { color: var(--color-fg); font-weight: 600; }
+.cc-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 30rem), 1fr)); gap: var(--cds-gap-md); }
+.cc-card { background: var(--color-panel); border: 1px solid var(--color-border-line); border-radius: var(--cds-radius); padding: var(--cds-pad-lg); display: flex; flex-direction: column; gap: var(--cds-gap-sm); min-width: 0; }
+.cc-card-wide { grid-column: 1 / -1; }
+.cc-card-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: var(--cds-gap-sm); }
+.cc-card h2 { margin: 0; font-size: var(--cds-font-size-heading); font-weight: var(--cds-font-weight-medium); }
+.cc-note { margin: 0; font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); line-height: 1.45; }
+.cc-link { font: inherit; font-size: var(--cds-font-size-caption); background: none; border: 0; padding: 0; color: var(--color-fg); text-decoration: underline; text-underline-offset: 2px; cursor: pointer; }
+.cc-legend { display: flex; flex-wrap: wrap; gap: var(--cds-gap-md); font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); }
+.cc-legend span { display: inline-flex; align-items: center; gap: 6px; }
+.cc-sw { width: 14px; height: 0; border-top: 2px solid; display: inline-block; }
+.cc-sw-dash { border-top-style: dashed; }
+.cc-sw-box { width: 10px; height: 10px; border: 0; border-radius: 2px; }
+.cc-chart { position: relative; width: 100%; min-height: 240px; }
+.cc-chart svg { display: block; overflow: visible; }
+.cc-chart text { fill: var(--color-fg-muted); font-size: var(--cds-font-size-caption); font-family: var(--font-anthropic-sans); }
+.cc-tip { position: absolute; pointer-events: none; background: var(--cds-surface-popover); border: 1px solid var(--cds-border); border-radius: var(--cds-radius); box-shadow: var(--cds-shadow-popover); padding: var(--cds-pad-xs) var(--cds-pad-sm); font-size: var(--cds-font-size-caption); white-space: nowrap; z-index: 2; font-variant-numeric: tabular-nums; }
+.cc-tip .cc-tip-h { color: var(--cds-text-secondary); margin-bottom: 2px; }
+.cc-tip .cc-tip-r { display: flex; align-items: center; gap: 6px; }
+.cc-scroll { overflow: auto; max-height: 30rem; border-top: 1px solid var(--color-border-line); }
+.cc-scroll.cc-short { max-height: 22rem; }
+.cc-table { width: 100%; border-collapse: collapse; font-size: var(--cds-font-size-caption); font-variant-numeric: tabular-nums; }
+.cc-table th { position: sticky; top: 0; background: var(--color-panel); text-align: left; font-weight: var(--cds-font-weight-medium); color: var(--color-fg-muted); padding: 0; border-bottom: 1px solid var(--color-border-line); z-index: 1; white-space: nowrap; }
+.cc-table th button { font: inherit; color: inherit; background: none; border: 0; padding: var(--cds-pad-xs) var(--cds-pad-sm); cursor: pointer; width: 100%; text-align: inherit; }
+.cc-table th[aria-sort="ascending"] button::after { content: " ↑"; }
+.cc-table th[aria-sort="descending"] button::after { content: " ↓"; }
+.cc-table th.cc-num, .cc-table td.cc-num { text-align: right; }
+.cc-table td { padding: var(--cds-pad-xs) var(--cds-pad-sm); border-bottom: 1px solid var(--color-border-line); vertical-align: middle; }
+.cc-table tbody tr.cc-click { cursor: pointer; }
+.cc-table tbody tr.cc-click:hover td { background: color-mix(in srgb, var(--color-fg) 5%, transparent); }
+.cc-table td.cc-wrap { white-space: normal; min-width: 12rem; }
+.cc-table td.cc-name { font-weight: var(--cds-font-weight-medium); color: var(--color-fg); }
+.cc-muted { color: var(--color-fg-muted); }
+.cc-good { color: var(--color-ok); }
+.cc-warn { color: var(--color-warn); }
+.cc-bad { color: var(--color-bad); }
+.cc-chip { display: inline-flex; align-items: center; gap: 5px; border-radius: 999px; padding: 1px 8px; font-size: var(--cds-font-size-caption); white-space: nowrap; border: 1px solid var(--color-border-line); }
+.cc-chip::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--color-fg-muted); }
+.cc-chip[data-tone="bad"] { color: var(--color-bad); border-color: color-mix(in srgb, var(--color-bad) 40%, transparent); background: color-mix(in srgb, var(--color-bad) 9%, transparent); }
+.cc-chip[data-tone="bad"]::before { background: var(--color-bad); }
+.cc-chip[data-tone="warn"] { color: var(--color-warn); border-color: color-mix(in srgb, var(--color-warn) 40%, transparent); background: color-mix(in srgb, var(--color-warn) 9%, transparent); }
+.cc-chip[data-tone="warn"]::before { background: var(--color-warn); }
+.cc-chip[data-tone="ok"] { color: var(--color-ok); border-color: color-mix(in srgb, var(--color-ok) 40%, transparent); }
+.cc-chip[data-tone="ok"]::before { background: var(--color-ok); }
+.cc-bar { display: inline-grid; grid-template-columns: 4.5rem auto; align-items: center; gap: 6px; }
+.cc-bar-track { position: relative; height: 6px; border-radius: 3px; background: color-mix(in srgb, var(--color-fg) 9%, transparent); }
+.cc-bar-fill { position: absolute; inset: 0 auto 0 0; border-radius: 3px; background: var(--color-fg-muted); }
+.cc-bar-fill[data-tone="bad"] { background: var(--color-bad); }
+.cc-bar-fill[data-tone="warn"] { background: var(--color-warn); }
+.cc-bar-fill[data-tone="ok"] { background: var(--color-ok); }
+.cc-bar-mark { position: absolute; top: -3px; bottom: -3px; width: 1px; background: var(--color-fg); }
+.cc-band { position: absolute; top: 0; bottom: 0; background: color-mix(in srgb, var(--color-ok) 28%, transparent); }
+.cc-dot { position: absolute; top: 50%; width: 8px; height: 8px; margin: -4px 0 0 -4px; border-radius: 50%; background: var(--color-fg); box-shadow: 0 0 0 2px var(--color-panel); }
+.cc-filters { display: flex; flex-wrap: wrap; gap: var(--cds-gap-xs); align-items: center; }
+.cc-empty { padding: var(--cds-pad-md); color: var(--color-fg-muted); font-size: var(--cds-font-size-caption); }
+.cc-fail { display: flex; align-items: center; justify-content: center; gap: 6px; min-height: 120px; color: var(--color-fg-muted); font-size: var(--cds-font-size-caption); }
+.cc-fail::before { content: ""; width: .375rem; height: .375rem; border-radius: 50%; background: var(--color-bad); }
+.cc-defs { margin: 0; padding-left: 1.1rem; font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); line-height: 1.55; columns: 2 18rem; column-gap: var(--cds-gap-xl); }
+[data-dash-source-state=refreshing] { opacity: .5; transition: opacity var(--cds-dur-slow); }
+[data-dash-source-state=empty] { color: transparent; }
+</style>
+
+<div class="cc" id="cc">
+  <header class="cc-head">
+    <div class="cc-titlebar">
+      <h1 class="cc-title" id="cc-title">Category Performance Cockpit</h1>
+      <span class="cc-asof">Sample data · sales to <span id="cc-asof" data-source="kpi" data-field="as_of" data-where="level=total">—</span></span>
+    </div>
+    <p class="cc-takeaway" id="cc-takeaway"><span class="dash-skeleton">—</span></p>
+    <div class="cc-controls">
+      <label for="cc-scope">View
+        <select id="cc-scope" class="cc-select" data-source="kpi" aria-label="Category, manager or all"></select>
+      </label>
+      <button type="button" class="cc-pill" id="cc-brand-pill" hidden aria-label="Clear brand filter"></button>
+    </div>
+    <nav class="cc-tabs" role="tablist" aria-label="Dashboard pages">
+      <button type="button" class="cc-tab" role="tab" id="tab-overview" data-page="overview">Overview</button>
+      <button type="button" class="cc-tab" role="tab" id="tab-sales" data-page="sales">Sales vs target</button>
+      <button type="button" class="cc-tab" role="tab" id="tab-stock" data-page="stock">Stock &amp; cover</button>
+      <button type="button" class="cc-tab" role="tab" id="tab-aging" data-page="aging">Aging &amp; expiry</button>
+      <button type="button" class="cc-tab" role="tab" id="tab-customers" data-page="customers">Customers &amp; margin</button>
+      <button type="button" class="cc-tab" role="tab" id="tab-alerts" data-page="alerts">Alerts</button>
+    </nav>
+  </header>
+
+  <section class="cc-page" id="overview" role="tabpanel" aria-labelledby="tab-overview">
+    <div class="cc-tiles" id="cc-tiles">
+      <div class="cc-tile" id="t-sales">
+        <span class="cc-tile-label">Sales month to date</span>
+        <span class="cc-tile-value" data-source="kpi" data-field="mtd_sales">—</span>
+        <span class="cc-tile-sub"><b data-source="kpi" data-field="pace_pct">—</b> of target to date · <span data-source="kpi" data-field="yoy_pct">—</span> vs last year</span>
+      </div>
+      <div class="cc-tile" id="t-forecast">
+        <span class="cc-tile-label">Month-end forecast</span>
+        <span class="cc-tile-value" data-source="kpi" data-field="forecast_eom">—</span>
+        <span class="cc-tile-sub"><b data-source="kpi" data-field="forecast_pct">—</b> of <span data-source="kpi" data-field="month_target">—</span> target · gap <span data-source="kpi" data-field="forecast_gap">—</span></span>
+      </div>
+      <div class="cc-tile" id="t-margin">
+        <span class="cc-tile-label">Gross margin</span>
+        <span class="cc-tile-value" data-source="kpi" data-field="gm_pct">—</span>
+        <span class="cc-tile-sub">Target <b data-source="kpi" data-field="target_gm_pct">—</b><span id="t-floor-wrap"> · floor <span data-source="kpi" data-field="margin_floor">—</span></span> · GP <span data-source="kpi" data-field="mtd_gp">—</span></span>
+      </div>
+      <div class="cc-tile" id="t-stock">
+        <span class="cc-tile-label">Stock on hand</span>
+        <span class="cc-tile-value" data-source="kpi" data-field="soh_value">—</span>
+        <span class="cc-tile-sub"><b data-source="kpi" data-field="days_cover">—</b> days of cover · <span data-source="kpi" data-field="inbound_value">—</span> on order</span>
+      </div>
+      <div class="cc-tile" id="t-risk">
+        <span class="cc-tile-label">Expiring within 30 days</span>
+        <span class="cc-tile-value" data-source="kpi" data-field="at_risk_value">—</span>
+        <span class="cc-tile-sub"><b data-source="kpi" data-field="expired_value">—</b> already expired · <span data-source="kpi" data-field="blocked_value">—</span> blocked or in QI</span>
+      </div>
+      <div class="cc-tile" id="t-avail">
+        <span class="cc-tile-label">Item-hub lines out of stock</span>
+        <span class="cc-tile-value" data-source="kpi" data-field="oos_skus">—</span>
+        <span class="cc-tile-sub"><b data-source="kpi" data-field="low_skus">—</b> low cover · <span data-source="kpi" data-field="over_skus">—</span> overstock · <span data-source="kpi" data-field="nomove_skus">—</span> not selling</span>
+      </div>
+    </div>
+
+    <div class="cc-grid">
+      <div class="cc-card" id="card-scorecard">
+        <div class="cc-card-head"><h2 id="cc-score-title">Category scorecard</h2><span class="cc-note">Month to date · click a row to drill in</span></div>
+        <div class="cc-scroll cc-short" id="cc-score-wrap">
+          <table class="cc-table" id="tbl-score" data-source="kpi" data-row-key="scope"></table>
+          <table class="cc-table" id="tbl-score-brand" data-source="brand" data-row-key="brand" hidden></table>
+        </div>
+      </div>
+      <div class="cc-card" id="card-topalerts">
+        <div class="cc-card-head"><h2>Act on these first</h2><button type="button" class="cc-link" data-goto="alerts">All alerts</button></div>
+        <p class="cc-note">Highest severity, then money at stake.</p>
+        <div class="cc-scroll cc-short">
+          <table class="cc-table" id="tbl-topalerts" data-source="alerts" data-row-key="alert_id"></table>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="cc-page" id="sales" role="tabpanel" aria-labelledby="tab-sales" hidden>
+    <div class="cc-grid">
+      <div class="cc-card" id="card-cum">
+        <div class="cc-card-head"><h2>Month to date, cumulative</h2><span class="cc-note">Target is phased evenly across the month</span></div>
+        <div class="cc-legend" aria-hidden="true">
+          <span><i class="cc-sw" id="lg-actual"></i>Actual</span>
+          <span><i class="cc-sw cc-sw-dash" style="border-color: var(--cds-chart-reference)"></i>Target</span>
+          <span><i class="cc-sw" style="border-color: var(--cds-chart-muted)"></i>Same days last year</span>
+        </div>
+        <div class="cc-chart" id="ch-cum" data-source="daily"></div>
+      </div>
+      <div class="cc-card" id="card-monthly">
+        <div class="cc-card-head"><h2>This year by month</h2><span class="cc-note">Sales against monthly target and last year</span></div>
+        <div class="cc-legend" aria-hidden="true">
+          <span><i class="cc-sw cc-sw-box" id="lg-bar"></i>Sales</span>
+          <span><i class="cc-sw" style="border-color: var(--cds-chart-reference)"></i>Target</span>
+          <span><i class="cc-sw cc-sw-box" style="background: var(--cds-chart-muted); border-radius: 50%"></i>Last year</span>
+        </div>
+        <div class="cc-chart" id="ch-monthly" data-source="monthly"></div>
+      </div>
+      <div class="cc-card cc-card-wide" id="card-brands">
+        <div class="cc-card-head"><h2>Brands</h2><span class="cc-note">Click a brand to see its items in Stock &amp; cover</span></div>
+        <div class="cc-scroll">
+          <table class="cc-table" id="tbl-brands" data-source="brand" data-row-key="brand"></table>
+        </div>
+      </div>
+      <div class="cc-card cc-card-wide" id="card-segments">
+        <div class="cc-card-head"><h2>Customer segments</h2><span class="cc-note">Month to date against the same days last year</span></div>
+        <div class="cc-scroll cc-short">
+          <table class="cc-table" id="tbl-segments" data-source="channel" data-row-key="scope,segment"></table>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="cc-page" id="stock" role="tabpanel" aria-labelledby="tab-stock" hidden>
+    <div class="cc-card" id="card-sku">
+      <div class="cc-card-head"><h2>Items by hub</h2><span class="cc-note">Cover = available in-date stock ÷ average daily units sold over 28 days. Green band = the category's target range.</span></div>
+      <div class="cc-filters" id="cc-status-filters"></div>
+      <div class="cc-filters">
+        <input type="search" id="cc-sku-search" class="cc-search" placeholder="Search item, brand or hub" aria-label="Search items">
+        <span class="cc-note" id="cc-sku-count"></span>
+      </div>
+      <div class="cc-scroll">
+        <table class="cc-table" id="tbl-sku" data-source="sku" data-row-key="item_code,hub"></table>
+      </div>
+    </div>
+  </section>
+
+  <section class="cc-page" id="aging" role="tabpanel" aria-labelledby="tab-aging" hidden>
+    <div class="cc-grid">
+      <div class="cc-card" id="card-life">
+        <div class="cc-card-head"><h2>Shelf life left</h2><span class="cc-note">Stock value by days until expiry</span></div>
+        <div class="cc-chart" id="ch-life" data-source="aging"></div>
+      </div>
+      <div class="cc-card" id="card-age">
+        <div class="cc-card-head"><h2>Days in stock</h2><span class="cc-note">Stock value by days since receipt</span></div>
+        <div class="cc-chart" id="ch-age" data-source="aging"></div>
+      </div>
+      <div class="cc-card cc-card-wide" id="card-expiry">
+        <div class="cc-card-head"><h2>Expired or expiring within 30 days</h2><span class="cc-note">Sell, bundle or move these first</span></div>
+        <div class="cc-scroll">
+          <table class="cc-table" id="tbl-expiry" data-source="sku" data-row-key="item_code,hub"></table>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="cc-page" id="customers" role="tabpanel" aria-labelledby="tab-customers" hidden>
+    <div class="cc-grid">
+      <div class="cc-card cc-card-wide" id="card-cust">
+        <div class="cc-card-head"><h2>Top customers against their usual pace</h2><span class="cc-note">Expected = average of the last three months, pro-rated to today</span></div>
+        <div class="cc-scroll">
+          <table class="cc-table" id="tbl-cust" data-source="customers" data-row-key="scope,customer"></table>
+        </div>
+      </div>
+      <div class="cc-card cc-card-wide" id="card-leak">
+        <div class="cc-card-head"><h2>Sold under the margin floor</h2><span class="cc-note">This month, more than 3 points under the category floor. Gap = gross profit lost against the floor.</span></div>
+        <div class="cc-scroll">
+          <table class="cc-table" id="tbl-leak" data-source="leak" data-row-key="leak_id"></table>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="cc-page" id="alerts" role="tabpanel" aria-labelledby="tab-alerts" hidden>
+    <div class="cc-card" id="card-alerts">
+      <div class="cc-card-head"><h2>Alerts</h2><span class="cc-note">Owner = category assistant; escalate Critical to the manager</span></div>
+      <div class="cc-filters" id="cc-sev-filters"></div>
+      <div class="cc-filters">
+        <label class="cc-note" for="cc-type">Type</label>
+        <select id="cc-type" class="cc-select" data-source="alerts" aria-label="Alert type"></select>
+      </div>
+      <div class="cc-scroll">
+        <table class="cc-table" id="tbl-alerts" data-source="alerts" data-row-key="alert_id"></table>
+      </div>
+    </div>
+    <div class="cc-card" id="card-defs">
+      <h2>How the numbers work</h2>
+      <ul class="cc-defs">
+        <li>Pace: sales month to date ÷ the month's target phased evenly to today.</li>
+        <li>Forecast: sales month to date scaled by how the same month finished last year, so it follows the season.</li>
+        <li>Days of cover: available in-date stock ÷ average units sold per day over the last 28 days, per item and hub.</li>
+        <li>Low cover and overstock use each category's own minimum and maximum days.</li>
+        <li>Expiring: available stock with 30 days or less of shelf life left.</li>
+        <li>Margin floor: the lowest gross margin the category accepts; lines below it show under Customers &amp; margin.</li>
+        <li>Customer pace: this month against the average of the three months before, pro-rated to today.</li>
+        <li>All names and figures are generated sample data.</li>
+      </ul>
+    </div>
+  </section>
+</div>
+
+<script>
+(function () {
+  const ALL = 'All categories';
+  const $ = (s) => document.querySelector(s);
+  const N = (v) => (v === null || v === undefined || v === '' ? null : Number(v));
+  const compact = new Intl.NumberFormat('en', { notation: 'compact', maximumFractionDigits: 1 });
+  const fmtMoney = (v) => (N(v) === null ? '—' : compact.format(N(v)));
+  const fmtInt = (v) => (N(v) === null ? '—' : d3.format(',')(Math.round(N(v))));
+  const fmtPct = (v, d = 1) => (N(v) === null ? '—' : (N(v) * 100).toFixed(d) + '%');
+  const fmtDelta = (v) => (N(v) === null ? '—' : (N(v) >= 0 ? '+' : '−') + Math.abs(N(v) * 100).toFixed(1) + '%');
+  const fmtGap = (v) => (N(v) === null ? '—' : (N(v) >= 0 ? '+' : '−') + compact.format(Math.abs(N(v))));
+  const fmtDays = (v) => (N(v) === null ? '—' : d3.format(',.0f')(N(v)));
+  const fmtDate = (s) => (s ? d3.utcFormat('%-d %b')(new Date(s + 'T00:00:00Z')) : '—');
+  const rowsOf = (id) => { const d = dash.data(id); return d.status === 'ok' && Array.isArray(d.data) ? d.data : []; };
+  const failed = (id) => ['error', 'missing'].includes(dash.data(id).status);
+  const paceTone = (p) => (N(p) === null ? '' : N(p) >= 1 ? 'ok' : N(p) >= 0.95 ? 'warn' : 'bad');
+  const STATUS_TONE = { 'Out of stock': 'bad', 'Low cover': 'warn', 'Overstock': 'warn', 'No sales 28d': '', 'Healthy': 'ok' };
+  const SEV_TONE = { Critical: 'bad', High: 'warn', Medium: '' };
+  const TREND_TONE = { Lapsed: 'bad', Declining: 'warn', Steady: '', Growing: 'ok' };
+
+  // ---------- state ----------
+  const local = { page: 'overview', status: 'All', sev: 'All', type: '', search: '', sorts: {} };
+  const params = () => Object.assign({ scope: ALL, brand: null }, dash.params());
+  const kpiRow = (scope) => rowsOf('kpi').find((r) => r.scope === scope);
+  const scopeInfo = () => {
+    const p = params();
+    const r = kpiRow(p.scope) || kpiRow(ALL);
+    return { scope: r ? r.scope : ALL, level: r ? r.level : 'total', row: r };
+  };
+  // rows of a category-grained dataset that belong to the current view
+  const inScope = (rows, catField = 'category', mgrField = 'manager') => {
+    const s = scopeInfo();
+    if (s.level === 'total') return rows;
+    if (s.level === 'manager') return rows.filter((r) => r[mgrField] === s.scope);
+    return rows.filter((r) => r[catField] === s.scope);
+  };
+  const setScope = (scope) => dash.setParams({ scope, brand: null });
+
+  // ---------- elements ----------
+  const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text !== undefined) e.textContent = text; return e; };
+  const chip = (text, tone) => { const c = el('span', 'cc-chip', text); if (tone) c.dataset.tone = tone; return c; };
+  const paceBar = (p) => {
+    const w = el('span', 'cc-bar'); const t = el('span', 'cc-bar-track'); const f = el('span', 'cc-bar-fill');
+    const v = N(p) || 0; f.style.width = Math.min(100, (v / 1.25) * 100) + '%'; f.dataset.tone = paceTone(p);
+    const m = el('span', 'cc-bar-mark'); m.style.left = (1 / 1.25) * 100 + '%';
+    t.append(f, m); w.append(t, el('span', '', fmtPct(p, 0))); return w;
+  };
+  const coverBar = (r) => {
+    const w = el('span', 'cc-bar'); const t = el('span', 'cc-bar-track');
+    const mn = N(r.cover_min), mx = N(r.cover_max), c = N(r.days_cover);
+    const top = Math.max(mx * 1.6, 10);
+    const band = el('span', 'cc-band'); band.style.left = (mn / top) * 100 + '%'; band.style.width = ((mx - mn) / top) * 100 + '%';
+    t.append(band);
+    if (c !== null) { const d = el('span', 'cc-dot'); d.style.left = Math.min(100, (c / top) * 100) + '%'; t.append(d); }
+    w.append(t, el('span', '', c === null ? '—' : fmtDays(c) + ' d')); return w;
+  };
+
+  // ---------- tables ----------
+  // cols: {field, label, num, fmt(v,row) -> string|Node, cls, sort(row)}
+  function drawTable(table, rows, cols, opts = {}) {
+    const key = table.id;
+    const sort = local.sorts[key] || opts.sort || null;
+    let data = rows.slice();
+    if (sort) {
+      const col = cols.find((c) => c.field === sort.field);
+      const get = col && col.sort ? col.sort : (r) => r[sort.field];
+      const isNum = col && col.num;
+      data.sort((a, b) => {
+        let x = get(a), y = get(b);
+        if (isNum) { x = N(x); y = N(y); if (x === null) return 1; if (y === null) return -1; return sort.dir * (x - y); }
+        return sort.dir * String(x ?? '').localeCompare(String(y ?? ''));
+      });
+    }
+    if (opts.limit) data = data.slice(0, opts.limit);
+    const thead = el('thead'); const hr = el('tr');
+    cols.forEach((c) => {
+      const th = el('th'); th.dataset.field = c.field; if (c.num) th.classList.add('cc-num');
+      if (sort && sort.field === c.field) th.setAttribute('aria-sort', sort.dir > 0 ? 'ascending' : 'descending');
+      const b = el('button', '', c.label); b.type = 'button';
+      b.addEventListener('click', () => {
+        const cur = local.sorts[key] || opts.sort || {};
+        local.sorts[key] = { field: c.field, dir: cur.field === c.field ? -cur.dir : (c.num ? -1 : 1) };
+        redraw();
+      });
+      th.append(b); hr.append(th);
+    });
+    thead.append(hr);
+    const tbody = el('tbody');
+    if (!data.length) {
+      const tr = el('tr'); const td = el('td', 'cc-empty', opts.empty || 'Nothing to show for this view.'); td.colSpan = cols.length; tr.append(td); tbody.append(tr);
+    }
+    data.forEach((r) => {
+      const tr = el('tr');
+      const kf = (table.dataset.rowKey || '').split(',');
+      tr.dataset.key = kf.map((k) => (kf.length > 1 ? encodeURIComponent(r[k]) : r[k])).join(',');
+      if (opts.onClick) { tr.classList.add('cc-click'); tr.tabIndex = 0; tr.addEventListener('click', () => opts.onClick(r)); tr.addEventListener('keydown', (e) => { if (e.key === 'Enter') opts.onClick(r); }); }
+      cols.forEach((c) => {
+        const td = el('td', c.cls || ''); if (c.num) td.classList.add('cc-num');
+        const v = c.fmt ? c.fmt(r[c.field], r) : (r[c.field] ?? '—');
+        if (v instanceof Node) td.append(v); else td.textContent = v;
+        tr.append(td);
+      });
+      tbody.append(tr);
+    });
+    table.replaceChildren(thead, tbody);
+  }
+  function failTable(table, id) { if (failed(id)) { const tb = el('tbody'); const tr = el('tr'); const td = el('td'); td.append(el('div', 'cc-fail', 'Failed to load')); tr.append(td); tb.append(tr); table.replaceChildren(tb); return true; } return false; }
+
+  // ---------- scope select ----------
+  const scopeSel = $('#cc-scope');
+  scopeSel.addEventListener('change', () => setScope(scopeSel.value));
+  function drawScope() {
+    const k = rowsOf('kpi');
+    if (!k.length) return;
+    const opts = [];
+    const total = k.find((r) => r.level === 'total');
+    if (total) opts.push(new Option('All categories', total.scope));
+    k.filter((r) => r.level === 'manager').forEach((m) => {
+      const g = document.createElement('optgroup'); g.label = m.scope;
+      g.append(new Option(m.scope + ' · all categories', m.scope));
+      k.filter((r) => r.level === 'category' && r.manager === m.scope).forEach((c) => g.append(new Option(c.scope, c.scope)));
+      opts.push(g);
+    });
+    scopeSel.replaceChildren(...opts);
+    scopeSel.value = scopeInfo().scope;
+  }
+
+  // ---------- header ----------
+  function drawHeader() {
+    const s = scopeInfo(); const r = s.row;
+    const ta = $('#cc-takeaway');
+    if (!r) { ta.replaceChildren(failed('kpi') ? el('span', 'cc-muted', 'The figures did not load.') : el('span', 'dash-skeleton', '—')); return; }
+    $('#cc-asof').textContent = fmtDate(String(r.as_of).slice(0, 10));
+    const where = 'scope=' + encodeURIComponent(s.scope);
+    const mark = (field, text) => { const b = el('b', '', text); b.dataset.source = 'kpi'; b.dataset.field = field; b.dataset.where = where; return b; };
+    const pace = N(r.pace_pct);
+    ta.replaceChildren(
+      document.createTextNode((s.scope === ALL ? 'All categories are' : s.scope + (s.level === 'manager' ? '’s categories are' : ' is')) + ' at '),
+      mark('pace_pct', fmtPct(r.pace_pct, 0)),
+      document.createTextNode(' of target to date and heading for '),
+      mark('forecast_pct', fmtPct(r.forecast_pct, 0)),
+      document.createTextNode(' of the month' + (pace !== null && pace < 0.95 ? ', so the gap needs action. ' : '. ')),
+      mark('oos_skus', fmtInt(r.oos_skus)),
+      document.createTextNode(' item-hub lines are out of stock and '),
+      mark('at_risk_value', fmtMoney(r.at_risk_value)),
+      document.createTextNode(' of stock expires within 30 days.')
+    );
+    const bp = $('#cc-brand-pill'); const brand = params().brand;
+    bp.hidden = !brand; bp.textContent = brand ? 'Brand: ' + brand + ' ×' : '';
+  }
+  $('#cc-brand-pill').addEventListener('click', () => dash.setParams({ brand: null }));
+
+  // ---------- overview ----------
+  function drawTiles() {
+    const s = scopeInfo(); const r = s.row;
+    const where = 'scope=' + encodeURIComponent(s.scope);
+    document.querySelectorAll('#cc-tiles [data-source="kpi"]').forEach((m) => {
+      m.dataset.where = where;
+      m.classList.toggle('dash-skeleton', !r && !failed('kpi'));
+      if (!r) { m.textContent = '—'; return; }
+      const f = m.dataset.field; const v = r[f];
+      const fmt = { mtd_sales: fmtMoney, forecast_eom: fmtMoney, month_target: fmtMoney, mtd_gp: fmtMoney, soh_value: fmtMoney, inbound_value: fmtMoney, at_risk_value: fmtMoney, expired_value: fmtMoney, blocked_value: fmtMoney,
+        pace_pct: (x) => fmtPct(x, 0), forecast_pct: (x) => fmtPct(x, 0), yoy_pct: fmtDelta, gm_pct: fmtPct, target_gm_pct: fmtPct, margin_floor: (x) => fmtPct(x, 0),
+        forecast_gap: fmtGap, days_cover: fmtDays, oos_skus: fmtInt, low_skus: fmtInt, over_skus: fmtInt, nomove_skus: fmtInt }[f] || String;
+      m.textContent = fmt(v);
+    });
+    $('#t-floor-wrap').hidden = !(r && r.margin_floor !== null && r.margin_floor !== undefined);
+    if (!r) return;
+    $('#t-sales').dataset.tone = paceTone(r.pace_pct);
+    $('#t-forecast').dataset.tone = paceTone(r.forecast_pct);
+    const gm = N(r.gm_pct), fl = N(r.margin_floor), tg = N(r.target_gm_pct);
+    $('#t-margin').dataset.tone = fl !== null && gm < fl ? 'bad' : gm < tg ? 'warn' : 'ok';
+    $('#t-stock').dataset.tone = '';
+    $('#t-risk').dataset.tone = N(r.expired_value) > 0 ? 'bad' : N(r.at_risk_value) > 0 ? 'warn' : 'ok';
+    $('#t-avail').dataset.tone = N(r.oos_skus) > 0 ? 'bad' : N(r.low_skus) > 0 ? 'warn' : 'ok';
+  }
+
+  function drawScorecard() {
+    const s = scopeInfo();
+    const tCat = $('#tbl-score'), tBr = $('#tbl-score-brand');
+    const byBrand = s.level === 'category';
+    tCat.hidden = byBrand; tBr.hidden = !byBrand;
+    $('#cc-score-title').textContent = byBrand ? s.scope + ' brands' : 'Category scorecard';
+    if (byBrand) {
+      if (failTable(tBr, 'brand')) return;
+      drawTable(tBr, rowsOf('brand').filter((r) => r.category === s.scope), [
+        { field: 'brand', label: 'Brand', cls: 'cc-name' },
+        { field: 'mtd_sales', label: 'Sales', num: true, fmt: fmtMoney },
+        { field: 'pace_pct', label: 'Pace', num: true, fmt: (v) => paceBar(v) },
+        { field: 'yoy_pct', label: 'vs LY', num: true, fmt: fmtDelta },
+        { field: 'gm_pct', label: 'GM', num: true, fmt: (v, r) => { const t = el('span', N(v) < N(r.margin_floor) ? 'cc-bad' : '', fmtPct(v)); return t; } },
+        { field: 'days_cover', label: 'Cover', num: true, fmt: (v) => fmtDays(v) + ' d' },
+        { field: 'short_lines', label: 'Short', num: true, fmt: fmtInt },
+      ], { sort: { field: 'mtd_sales', dir: -1 }, onClick: (r) => { dash.setParams({ brand: r.brand }); showPage('stock'); } });
+      return;
+    }
+    if (failTable(tCat, 'kpi')) return;
+    const cats = inScope(rowsOf('kpi').filter((r) => r.level === 'category'), 'scope');
+    drawTable(tCat, cats, [
+      { field: 'scope', label: 'Category', cls: 'cc-name' },
+      { field: 'mtd_sales', label: 'Sales', num: true, fmt: fmtMoney },
+      { field: 'pace_pct', label: 'Pace', num: true, fmt: (v) => paceBar(v) },
+      { field: 'forecast_pct', label: 'Forecast', num: true, fmt: (v) => el('span', 'cc-' + ({ ok: 'good', warn: 'warn', bad: 'bad' }[paceTone(v)] || 'muted'), fmtPct(v, 0)) },
+      { field: 'yoy_pct', label: 'vs LY', num: true, fmt: fmtDelta },
+      { field: 'gm_pct', label: 'GM', num: true, fmt: (v, r) => el('span', N(v) < N(r.margin_floor) ? 'cc-bad' : '', fmtPct(v)) },
+      { field: 'days_cover', label: 'Cover', num: true, fmt: (v) => fmtDays(v) + ' d' },
+      { field: 'at_risk_value', label: 'Expiring', num: true, fmt: fmtMoney },
+      { field: 'oos_skus', label: 'Out of stock', num: true, fmt: (v) => el('span', N(v) > 0 ? 'cc-bad' : 'cc-muted', fmtInt(v)) },
+    ], { sort: { field: 'pace_pct', dir: 1 }, onClick: (r) => setScope(r.scope) });
+  }
+
+  const alertsInScope = () => {
+    const s = scopeInfo(); const rows = rowsOf('alerts'); const brand = params().brand;
+    let out = s.level === 'total' ? rows : s.level === 'manager' ? rows.filter((r) => r.manager === s.scope) : rows.filter((r) => r.category === s.scope);
+    if (brand) { const items = new Set(rowsOf('sku').filter((r) => r.brand === brand).map((r) => r.description)); out = out.filter((r) => items.has(r.subject) || r.subject === brand); }
+    return out;
+  };
+  const alertCols = (full) => [
+    { field: 'severity_label', label: 'Severity', fmt: (v) => chip(v, SEV_TONE[v]), sort: (r) => r.severity },
+    { field: 'alert_type', label: 'Alert' },
+    { field: 'subject', label: 'Item or account', cls: 'cc-name cc-wrap' },
+    ...(full ? [{ field: 'hub', label: 'Hub' }, { field: 'detail', label: 'Detail', cls: 'cc-wrap cc-muted' }] : []),
+    { field: 'value_at_stake', label: 'At stake', num: true, fmt: fmtMoney },
+    ...(full ? [{ field: 'action', label: 'Next step', cls: 'cc-wrap' }, { field: 'assistant', label: 'Owner' }] : [{ field: 'action', label: 'Next step', cls: 'cc-wrap cc-muted' }]),
+  ];
+  function drawTopAlerts() {
+    const t = $('#tbl-topalerts'); if (failTable(t, 'alerts')) return;
+    drawTable(t, alertsInScope(), alertCols(false), { sort: { field: 'severity_label', dir: 1 }, limit: 10, empty: 'No alerts for this view.' });
+  }
+
+  // ---------- charts ----------
+  const tipFor = (box) => { let t = box.querySelector('.cc-tip'); if (!t) { t = el('div', 'cc-tip'); t.hidden = true; box.append(t); } return t; };
+  const placeTip = (box, tip, x, y) => {
+    tip.hidden = false; const bw = box.clientWidth; const tw = tip.offsetWidth; const th = tip.offsetHeight;
+    let left = x + 12; if (left + tw > bw) left = x - tw - 12; if (left < 0) left = 0;
+    let top = y - th - 8; if (top < 0) top = y + 12;
+    tip.style.left = left + 'px'; tip.style.top = top + 'px';
+  };
+  const tipRows = (tip, head, rows) => {
+    const h = el('div', 'cc-tip-h', head); const out = [h];
+    rows.forEach(([color, name, val, dashed]) => { const r = el('div', 'cc-tip-r'); const sw = el('i', 'cc-sw' + (dashed ? ' cc-sw-dash' : '')); sw.style.borderColor = color; r.append(sw, el('span', '', name + ' ' + val)); out.push(r); });
+    tip.replaceChildren(...out);
+  };
+  const measure = (svg, texts) => { const t = svg.append('text').attr('visibility', 'hidden'); let w = 0; texts.forEach((s) => { t.text(s); w = Math.max(w, t.node().getComputedTextLength()); }); t.remove(); return w; };
+  const chartFail = (box, id) => { if (failed(id)) { box.replaceChildren(el('div', 'cc-fail', 'Failed to load')); return true; } return false; };
+
+  function drawCum() {
+    const box = $('#ch-cum'); if (chartFail(box, 'daily')) return;
+    const s = scopeInfo();
+    const data = rowsOf('daily').filter((r) => r.scope === s.scope).map((r) => ({ d: new Date(r.day + 'T00:00:00Z'), a: N(r.cum_sales), t: N(r.cum_target), ly: N(r.cum_ly) }));
+    box.querySelectorAll('svg').forEach((n) => n.remove());
+    if (!data.length) return;
+    const W = box.clientWidth || 400, H = 240;
+    const svg = d3.select(box).append('svg').attr('width', '100%').attr('viewBox', `0 0 ${W} ${H}`).attr('height', H);
+    const ymax = d3.max(data, (r) => Math.max(r.a || 0, r.t || 0, r.ly || 0)) * 1.06;
+    const y = d3.scaleLinear([0, ymax], [H - 24, 10]).nice();
+    const ticks = y.ticks(4);
+    const ml = measure(svg, ticks.map((v) => compact.format(v))) + 10;
+    const lastA = data.filter((r) => r.a !== null).pop();
+    const mr = measure(svg, [lastA ? compact.format(lastA.a) : '']) + 14;
+    const x = d3.scaleUtc(d3.extent(data, (r) => r.d), [ml, W - mr]);
+    svg.append('g').selectAll('line').data(ticks).join('line').attr('x1', ml).attr('x2', W - mr).attr('y1', (v) => y(v)).attr('y2', (v) => y(v)).attr('stroke', 'var(--cds-chart-grid)');
+    svg.append('g').selectAll('text').data(ticks).join('text').attr('x', ml - 8).attr('y', (v) => y(v)).attr('dy', '0.32em').attr('text-anchor', 'end').text((v) => compact.format(v));
+    const xt = x.ticks(Math.max(2, Math.min(6, Math.floor(W / 90))));
+    svg.append('g').selectAll('text').data(xt).join('text').attr('x', (v) => x(v)).attr('y', H - 6).attr('text-anchor', 'middle').text(d3.utcFormat('%-d %b'));
+    svg.append('line').attr('x1', ml).attr('x2', W - mr).attr('y1', y(0)).attr('y2', y(0)).attr('stroke', 'var(--cds-chart-axis)');
+    const line = (k) => d3.line().defined((r) => r[k] !== null).x((r) => x(r.d)).y((r) => y(r[k]));
+    const gid = 'cc-grad-cum';
+    const grad = svg.append('defs').append('linearGradient').attr('id', gid).attr('x1', 0).attr('x2', 0).attr('y1', 0).attr('y2', 1);
+    [[0, .26], [.25, .16], [.5, .08], [.75, .03], [1, 0]].forEach(([o, op]) => grad.append('stop').attr('offset', o).attr('style', `stop-color:${dash.colors[0]};stop-opacity:${op}`));
+    svg.append('path').datum(data.filter((r) => r.a !== null)).attr('fill', `url(#${gid})`).attr('d', d3.area().x((r) => x(r.d)).y0(y(0)).y1((r) => y(r.a)));
+    svg.append('path').datum(data).attr('fill', 'none').attr('stroke', 'var(--cds-chart-muted)').attr('stroke-width', 2).attr('stroke-linejoin', 'round').attr('stroke-linecap', 'round').attr('d', line('ly'));
+    svg.append('path').datum(data).attr('fill', 'none').attr('stroke', 'var(--cds-chart-reference)').attr('stroke-width', 1.5).attr('stroke-dasharray', '4 4').attr('d', line('t'));
+    svg.append('path').datum(data).attr('fill', 'none').attr('stroke', dash.colors[0]).attr('stroke-width', 2).attr('stroke-linejoin', 'round').attr('stroke-linecap', 'round').attr('d', line('a'));
+    if (lastA) {
+      svg.append('circle').attr('cx', x(lastA.d)).attr('cy', y(lastA.a)).attr('r', 4).attr('fill', dash.colors[0]).attr('stroke', 'var(--color-panel)').attr('stroke-width', 2);
+      svg.append('text').attr('x', x(lastA.d) + 8).attr('y', y(lastA.a)).attr('dy', '0.32em').attr('style', 'fill: var(--color-fg)').text(compact.format(lastA.a));
+    }
+    const hover = svg.append('g').attr('pointer-events', 'none');
+    const rule = hover.append('line').attr('stroke', 'var(--cds-chart-axis)').attr('y1', 10).attr('y2', H - 24).attr('opacity', 0);
+    const dot = hover.append('circle').attr('r', 4).attr('fill', dash.colors[0]).attr('stroke', 'var(--color-panel)').attr('stroke-width', 2).attr('opacity', 0);
+    const tip = tipFor(box);
+    const bis = d3.bisector((r) => r.d).center;
+    svg.append('rect').attr('x', ml).attr('y', 0).attr('width', Math.max(0, W - mr - ml)).attr('height', H).attr('fill', 'transparent')
+      .on('pointermove', (ev) => {
+        const [px] = d3.pointer(ev); const r = data[bis(data, x.invert(px))]; if (!r) return;
+        rule.attr('x1', x(r.d)).attr('x2', x(r.d)).attr('opacity', 1);
+        if (r.a !== null) dot.attr('cx', x(r.d)).attr('cy', y(r.a)).attr('opacity', 1); else dot.attr('opacity', 0);
+        tipRows(tip, d3.utcFormat('%-d %b')(r.d), [[dash.colors[0], 'Actual', r.a === null ? '—' : compact.format(r.a)], ['var(--cds-chart-reference)', 'Target', compact.format(r.t), true], ['var(--cds-chart-muted)', 'Last year', compact.format(r.ly)]]);
+        const scale = box.clientWidth / W; placeTip(box, tip, x(r.d) * scale, (r.a !== null ? y(r.a) : y(r.t)) * scale);
+      })
+      .on('pointerleave', () => { rule.attr('opacity', 0); dot.attr('opacity', 0); tip.hidden = true; });
+    $('#lg-actual').style.borderColor = dash.colors[0];
+  }
+
+  function drawMonthly() {
+    const box = $('#ch-monthly'); if (chartFail(box, 'monthly')) return;
+    const s = scopeInfo();
+    const data = rowsOf('monthly').filter((r) => r.scope === s.scope).map((r) => ({ m: r.month, s: N(r.sales), t: N(r.target), ly: N(r.ly_sales) }));
+    box.querySelectorAll('svg').forEach((n) => n.remove());
+    if (!data.length) return;
+    const W = box.clientWidth || 400, H = 240;
+    const svg = d3.select(box).append('svg').attr('width', '100%').attr('viewBox', `0 0 ${W} ${H}`).attr('height', H);
+    const ymax = d3.max(data, (r) => Math.max(r.s || 0, r.t || 0, r.ly || 0)) * 1.06;
+    const y = d3.scaleLinear([0, ymax], [H - 24, 10]).nice();
+    const ticks = y.ticks(4);
+    const ml = measure(svg, ticks.map((v) => compact.format(v))) + 10;
+    const x = d3.scaleBand(data.map((r) => r.m), [ml, W - 4]).padding(0.3);
+    const mon = (m) => d3.utcFormat('%b')(new Date(m + '-01T00:00:00Z'));
+    svg.append('g').selectAll('line').data(ticks).join('line').attr('x1', ml).attr('x2', W - 4).attr('y1', (v) => y(v)).attr('y2', (v) => y(v)).attr('stroke', 'var(--cds-chart-grid)');
+    svg.append('g').selectAll('text').data(ticks).join('text').attr('x', ml - 8).attr('y', (v) => y(v)).attr('dy', '0.32em').attr('text-anchor', 'end').text((v) => compact.format(v));
+    const every = x.bandwidth() < 22 ? 2 : 1;
+    svg.append('g').selectAll('text').data(data.filter((r, i) => i % every === 0)).join('text').attr('x', (r) => x(r.m) + x.bandwidth() / 2).attr('y', H - 6).attr('text-anchor', 'middle').text((r) => mon(r.m));
+    const bw = Math.min(32, x.bandwidth());
+    const bx = (r) => x(r.m) + (x.bandwidth() - bw) / 2;
+    svg.append('g').selectAll('path').data(data.filter((r) => r.s !== null && r.s > 0)).join('path').attr('fill', dash.colors[0])
+      .attr('d', (r) => { const x0 = bx(r), y0 = y(r.s), h = y(0) - y0, rr = Math.min(4, bw / 2, h); return `M${x0},${y(0)}V${y0 + rr}Q${x0},${y0} ${x0 + rr},${y0}H${x0 + bw - rr}Q${x0 + bw},${y0} ${x0 + bw},${y0 + rr}V${y(0)}Z`; });
+    svg.append('g').selectAll('line').data(data.filter((r) => r.t !== null)).join('line').attr('x1', (r) => bx(r) - 4).attr('x2', (r) => bx(r) + bw + 4).attr('y1', (r) => y(r.t)).attr('y2', (r) => y(r.t)).attr('stroke', 'var(--cds-chart-reference)').attr('stroke-width', 2);
+    svg.append('g').selectAll('circle').data(data.filter((r) => r.ly !== null)).join('circle').attr('cx', (r) => x(r.m) + x.bandwidth() / 2).attr('cy', (r) => y(r.ly)).attr('r', 3.5).attr('fill', 'var(--cds-chart-muted)').attr('stroke', 'var(--color-panel)').attr('stroke-width', 2);
+    svg.append('line').attr('x1', ml).attr('x2', W - 4).attr('y1', y(0)).attr('y2', y(0)).attr('stroke', 'var(--cds-chart-axis)');
+    const tip = tipFor(box);
+    svg.append('g').selectAll('rect').data(data).join('rect').attr('x', (r) => x(r.m) - (x.step() - x.bandwidth()) / 2).attr('width', x.step()).attr('y', 0).attr('height', H).attr('fill', 'transparent')
+      .on('pointermove', (ev, r) => {
+        tipRows(tip, d3.utcFormat('%B %Y')(new Date(r.m + '-01T00:00:00Z')), [[dash.colors[0], 'Sales', r.s === null ? '—' : compact.format(r.s)], ['var(--cds-chart-reference)', 'Target', r.t === null ? '—' : compact.format(r.t)], ['var(--cds-chart-muted)', 'Last year', r.ly === null ? '—' : compact.format(r.ly)]]);
+        const [px, py] = d3.pointer(ev, box); placeTip(box, tip, px, py);
+      })
+      .on('pointerleave', () => { tip.hidden = true; });
+    $('#lg-bar').style.background = dash.colors[0];
+  }
+
+  function drawAgingChart(boxId, basis, hot) {
+    const box = $(boxId); if (chartFail(box, 'aging')) return;
+    const s = scopeInfo();
+    const data = rowsOf('aging').filter((r) => r.scope === s.scope && r.basis === basis).map((r) => ({ b: r.bucket, o: N(r.bucket_order), v: N(r.value) })).sort((a, b) => a.o - b.o);
+    box.querySelectorAll('svg').forEach((n) => n.remove());
+    if (!data.length) return;
+    const W = box.clientWidth || 400, rowH = 30, H = data.length * rowH + 8;
+    box.style.minHeight = H + 'px';
+    const svg = d3.select(box).append('svg').attr('width', '100%').attr('viewBox', `0 0 ${W} ${H}`).attr('height', H);
+    const ml = measure(svg, data.map((r) => r.b)) + 12;
+    const mr = measure(svg, data.map((r) => compact.format(r.v))) + 12;
+    const x = d3.scaleLinear([0, d3.max(data, (r) => r.v) || 1], [ml, W - mr]);
+    const y = d3.scaleBand(data.map((r) => r.b), [4, H - 4]).padding(0.28);
+    const color = (r) => (r.b === 'Expired' ? 'var(--cds-chart-status-critical)' : hot.includes(r.b) ? dash.colors[0] : 'var(--cds-chart-muted)');
+    svg.append('g').selectAll('text').data(data).join('text').attr('x', ml - 8).attr('y', (r) => y(r.b) + y.bandwidth() / 2).attr('dy', '0.32em').attr('text-anchor', 'end').text((r) => r.b);
+    svg.append('g').selectAll('rect').data(data).join('rect').attr('x', ml).attr('y', (r) => y(r.b)).attr('height', y.bandwidth()).attr('width', (r) => Math.max(0, x(r.v) - ml)).attr('rx', 4).attr('fill', color);
+    svg.append('g').selectAll('text.v').data(data).join('text').attr('class', 'v').attr('x', (r) => x(r.v) + 6).attr('y', (r) => y(r.b) + y.bandwidth() / 2).attr('dy', '0.32em').attr('style', 'fill: var(--color-fg)').text((r) => compact.format(r.v));
+    svg.append('line').attr('x1', ml).attr('x2', ml).attr('y1', 0).attr('y2', H).attr('stroke', 'var(--cds-chart-axis)');
+  }
+
+  // ---------- sales tab ----------
+  function drawBrands() {
+    const t = $('#tbl-brands'); if (failTable(t, 'brand')) return;
+    const brand = params().brand;
+    const rows = inScope(rowsOf('brand')).filter((r) => !brand || r.brand === brand);
+    drawTable(t, rows, [
+      { field: 'brand', label: 'Brand', cls: 'cc-name' },
+      { field: 'category', label: 'Category', cls: 'cc-muted' },
+      { field: 'origin', label: 'Origin', cls: 'cc-muted' },
+      { field: 'mtd_sales', label: 'Sales', num: true, fmt: fmtMoney },
+      { field: 'month_target', label: 'Month target', num: true, fmt: fmtMoney },
+      { field: 'pace_pct', label: 'Pace', num: true, fmt: (v) => paceBar(v) },
+      { field: 'forecast_gap', label: 'Forecast gap', num: true, fmt: (v) => el('span', N(v) < 0 ? 'cc-bad' : 'cc-good', fmtGap(v)) },
+      { field: 'yoy_pct', label: 'vs LY', num: true, fmt: fmtDelta },
+      { field: 'gm_pct', label: 'GM', num: true, fmt: (v, r) => el('span', N(v) < N(r.margin_floor) ? 'cc-bad' : '', fmtPct(v)) },
+      { field: 'days_cover', label: 'Cover', num: true, fmt: (v) => fmtDays(v) + ' d' },
+      { field: 'at_risk_value', label: 'Expiry risk', num: true, fmt: fmtMoney },
+      { field: 'short_lines', label: 'Short lines', num: true, fmt: (v) => el('span', N(v) > 0 ? 'cc-warn' : 'cc-muted', fmtInt(v)) },
+    ], { sort: { field: 'forecast_gap', dir: 1 }, onClick: (r) => { dash.setParams({ brand: r.brand }); showPage('stock'); } });
+  }
+  function drawSegments() {
+    const t = $('#tbl-segments'); if (failTable(t, 'channel')) return;
+    const s = scopeInfo();
+    drawTable(t, rowsOf('channel').filter((r) => r.scope === s.scope), [
+      { field: 'segment', label: 'Segment', cls: 'cc-name' },
+      { field: 'mtd_sales', label: 'Sales', num: true, fmt: fmtMoney },
+      { field: 'ly_mtd_sales', label: 'Last year', num: true, fmt: fmtMoney },
+      { field: 'yoy_pct', label: 'vs LY', num: true, fmt: (v) => el('span', N(v) < -0.05 ? 'cc-bad' : N(v) > 0.05 ? 'cc-good' : '', fmtDelta(v)) },
+      { field: 'gm_pct', label: 'GM', num: true, fmt: fmtPct },
+    ], { sort: { field: 'mtd_sales', dir: -1 } });
+  }
+
+  // ---------- stock tab ----------
+  const STATUSES = ['All', 'Out of stock', 'Low cover', 'Overstock', 'No sales 28d', 'Healthy'];
+  const STATUS_COUNT = { 'Out of stock': 'oos_skus', 'Low cover': 'low_skus', 'Overstock': 'over_skus', 'No sales 28d': 'nomove_skus' };
+  function drawStatusFilters() {
+    const box = $('#cc-status-filters'); const s = scopeInfo(); const r = s.row; const brand = params().brand;
+    box.replaceChildren(...STATUSES.map((st) => {
+      const b = el('button', 'cc-pill'); b.type = 'button'; b.setAttribute('aria-pressed', String(local.status === st));
+      b.append(document.createTextNode(st));
+      if (STATUS_COUNT[st] && r && !brand) { const c = el('b', '', fmtInt(r[STATUS_COUNT[st]])); c.dataset.source = 'kpi'; c.dataset.field = STATUS_COUNT[st]; c.dataset.where = 'scope=' + encodeURIComponent(s.scope); b.append(c); }
+      b.addEventListener('click', () => { local.status = st; redraw(); });
+      return b;
+    }));
+  }
+  const skuSearch = $('#cc-sku-search');
+  skuSearch.addEventListener('input', () => { local.search = skuSearch.value.trim().toLowerCase(); drawSku(); });
+  function drawSku() {
+    const t = $('#tbl-sku'); if (failTable(t, 'sku')) return;
+    const brand = params().brand;
+    let rows = inScope(rowsOf('sku'));
+    if (brand) rows = rows.filter((r) => r.brand === brand);
+    if (local.status !== 'All') rows = rows.filter((r) => r.status === local.status);
+    if (local.search) rows = rows.filter((r) => (r.description + ' ' + r.brand + ' ' + r.hub).toLowerCase().includes(local.search));
+    $('#cc-sku-count').textContent = rows.length + ' item-hub lines';
+    drawTable(t, rows, [
+      { field: 'description', label: 'Item', cls: 'cc-name cc-wrap' },
+      { field: 'hub', label: 'Hub' },
+      { field: 'status', label: 'Status', fmt: (v) => chip(v, STATUS_TONE[v]) },
+      { field: 'days_cover', label: 'Days of cover', num: true, fmt: (v, r) => coverBar(r), sort: (r) => r.days_cover },
+      { field: 'cover_incl_inbound', label: 'With POs', num: true, fmt: (v) => (N(v) === null ? '—' : fmtDays(v) + ' d') },
+      { field: 'avg_daily_qty', label: 'Sold / day', num: true, fmt: (v, r) => (N(v) === null ? '—' : d3.format(',.1f')(N(v)) + ' ' + String(r.uom).toLowerCase()) },
+      { field: 'soh_value', label: 'Stock value', num: true, fmt: fmtMoney },
+      { field: 'next_eta', label: 'Next PO', fmt: (v) => fmtDate(v) },
+      { field: 'action', label: 'Suggested action', cls: 'cc-wrap' },
+    ], { sort: { field: 'days_cover', dir: 1 } });
+  }
+
+  // ---------- aging tab ----------
+  function drawExpiry() {
+    const t = $('#tbl-expiry'); if (failTable(t, 'sku')) return;
+    const brand = params().brand;
+    const rows = inScope(rowsOf('sku')).filter((r) => (N(r.at_risk_value) > 0 || N(r.expired_value) > 0) && (!brand || r.brand === brand));
+    drawTable(t, rows, [
+      { field: 'description', label: 'Item', cls: 'cc-name cc-wrap' },
+      { field: 'hub', label: 'Hub' },
+      { field: 'expired_value', label: 'Expired', num: true, fmt: (v) => el('span', N(v) > 0 ? 'cc-bad' : 'cc-muted', fmtMoney(v)) },
+      { field: 'at_risk_value', label: 'Expiring ≤30 d', num: true, fmt: (v) => el('span', N(v) > 0 ? 'cc-warn' : 'cc-muted', fmtMoney(v)) },
+      { field: 'days_to_expiry', label: 'Next expiry', num: true, fmt: (v) => (N(v) === null ? '—' : fmtDays(v) + ' d') },
+      { field: 'days_cover', label: 'Cover', num: true, fmt: (v) => (N(v) === null ? '—' : fmtDays(v) + ' d') },
+      { field: 'status', label: 'Status', fmt: (v) => chip(v, STATUS_TONE[v]) },
+      { field: 'action', label: 'Suggested action', cls: 'cc-wrap' },
+    ], { sort: { field: 'at_risk_value', dir: -1 } });
+  }
+
+  // ---------- customers tab ----------
+  function drawCustomers() {
+    const t = $('#tbl-cust'); if (failTable(t, 'customers')) return;
+    const s = scopeInfo();
+    drawTable(t, rowsOf('customers').filter((r) => r.scope === s.scope), [
+      { field: 'customer', label: 'Customer', cls: 'cc-name' },
+      { field: 'segment', label: 'Segment', cls: 'cc-muted' },
+      { field: 'salesperson', label: 'Salesperson', cls: 'cc-muted' },
+      { field: 'mtd_sales', label: 'This month', num: true, fmt: fmtMoney },
+      { field: 'expected_to_date', label: 'Expected', num: true, fmt: fmtMoney },
+      { field: 'vs_expected', label: 'Gap', num: true, fmt: (v) => el('span', N(v) < 0 ? 'cc-bad' : 'cc-good', fmtGap(v)) },
+      { field: 'run_rate_pct', label: 'Pace', num: true, fmt: (v) => paceBar(v) },
+      { field: 'trend', label: 'Trend', fmt: (v) => chip(v, TREND_TONE[v]) },
+    ], { sort: { field: 'vs_expected', dir: 1 } });
+  }
+  function drawLeak() {
+    const t = $('#tbl-leak'); if (failTable(t, 'leak')) return;
+    drawTable(t, inScope(rowsOf('leak')), [
+      { field: 'customer', label: 'Customer', cls: 'cc-name' },
+      { field: 'item', label: 'Item', cls: 'cc-wrap' },
+      { field: 'salesperson', label: 'Salesperson', cls: 'cc-muted' },
+      { field: 'net_sales', label: 'Sales', num: true, fmt: fmtMoney },
+      { field: 'gm_pct', label: 'GM', num: true, fmt: (v) => el('span', 'cc-bad', fmtPct(v)) },
+      { field: 'margin_floor', label: 'Floor', num: true, fmt: (v) => fmtPct(v, 0) },
+      { field: 'gp_gap', label: 'Gap', num: true, fmt: fmtMoney },
+      { field: 'order_types', label: 'Order type', cls: 'cc-muted' },
+    ], { sort: { field: 'gp_gap', dir: -1 } });
+  }
+
+  // ---------- alerts tab ----------
+  const typeSel = $('#cc-type');
+  typeSel.addEventListener('change', () => { local.type = typeSel.value; drawAlerts(); });
+  function drawAlerts() {
+    const t = $('#tbl-alerts'); if (failTable(t, 'alerts')) return;
+    const scoped = alertsInScope();
+    const types = Array.from(new Set(rowsOf('alerts').map((r) => r.alert_type))).sort();
+    typeSel.replaceChildren(new Option('All types', ''), ...types.map((x) => new Option(x, x)));
+    typeSel.value = local.type;
+    const sevBox = $('#cc-sev-filters');
+    sevBox.replaceChildren(...['All', 'Critical', 'High', 'Medium'].map((sv) => {
+      const b = el('button', 'cc-pill', sv); b.type = 'button'; b.setAttribute('aria-pressed', String(local.sev === sv));
+      b.addEventListener('click', () => { local.sev = sv; drawAlerts(); }); return b;
+    }));
+    const rows = scoped.filter((r) => (local.sev === 'All' || r.severity_label === local.sev) && (!local.type || r.alert_type === local.type));
+    drawTable(t, rows, alertCols(true), { sort: { field: 'severity_label', dir: 1 }, empty: 'No alerts match these filters.' });
+  }
+
+  // ---------- pages ----------
+  const PAGES = ['overview', 'sales', 'stock', 'aging', 'customers', 'alerts'];
+  function showPage(p) {
+    if (!PAGES.includes(p)) p = 'overview';
+    local.page = p;
+    PAGES.forEach((id) => { $('#' + id).hidden = id !== p; const tab = $('#tab-' + id); tab.setAttribute('aria-selected', String(id === p)); tab.tabIndex = id === p ? 0 : -1; });
+    dash.setLink(p);
+    redraw();
+  }
+  document.querySelectorAll('.cc-tab').forEach((b) => b.addEventListener('click', () => showPage(b.dataset.page)));
+  document.querySelectorAll('[data-goto]').forEach((b) => b.addEventListener('click', () => showPage(b.dataset.goto)));
+
+  function redraw() {
+    drawScope(); drawHeader();
+    const p = local.page;
+    if (p === 'overview') { drawTiles(); drawScorecard(); drawTopAlerts(); }
+    if (p === 'sales') { drawCum(); drawMonthly(); drawBrands(); drawSegments(); }
+    if (p === 'stock') { drawStatusFilters(); drawSku(); }
+    if (p === 'aging') { drawAgingChart('#ch-life', 'Shelf life left', ['0-30 days']); drawAgingChart('#ch-age', 'Days in stock', ['91-180 days', 'Over 180 days']); drawExpiry(); }
+    if (p === 'customers') { drawCustomers(); drawLeak(); }
+    if (p === 'alerts') drawAlerts();
+  }
+
+  const start = (location.hash || '').slice(1);
+  showPage(PAGES.includes(start) ? start : 'overview');
+  dash.onData(redraw);
+})();
+</script>
