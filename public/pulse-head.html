@@ -160,6 +160,11 @@ a { color: var(--brand-blue); }
 .cc-table tbody tr:hover > td { background: var(--tbl-hover); }
 .cc-table td.cc-wrap { white-space: normal; min-width: 12rem; }
 .cc-table td.cc-name { font-weight: 600; }
+.cc-exp { font: inherit; font-size: 13px; width: 1.5rem; height: 1.5rem; margin: -2px 4px -2px -4px; padding: 0; border: 1px solid var(--border); border-radius: 4px; background: var(--surface); color: var(--brand-blue); cursor: pointer; vertical-align: middle; transition: transform .2s; }
+.cc-exp[aria-expanded="true"] { transform: rotate(90deg); }
+.cc-exp:hover { border-color: var(--brand-blue); }
+.cc-table tr.cc-sub > td { font-size: 12.5px; background: var(--brand-blue-50); }
+.cc-table tr.cc-sub > td:first-child { padding-left: 2.4rem; color: var(--text-muted); font-weight: 500; }
 .cc-muted { color: var(--text-muted); }
 .cc-good { color: var(--over); font-weight: 600; }
 .cc-warn { color: var(--warn); font-weight: 600; }

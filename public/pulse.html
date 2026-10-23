@@ -160,6 +160,11 @@ a { color: var(--brand-blue); }
 .cc-table tbody tr:hover > td { background: var(--tbl-hover); }
 .cc-table td.cc-wrap { white-space: normal; min-width: 12rem; }
 .cc-table td.cc-name { font-weight: 600; }
+.cc-exp { font: inherit; font-size: 13px; width: 1.5rem; height: 1.5rem; margin: -2px 4px -2px -4px; padding: 0; border: 1px solid var(--border); border-radius: 4px; background: var(--surface); color: var(--brand-blue); cursor: pointer; vertical-align: middle; transition: transform .2s; }
+.cc-exp[aria-expanded="true"] { transform: rotate(90deg); }
+.cc-exp:hover { border-color: var(--brand-blue); }
+.cc-table tr.cc-sub > td { font-size: 12.5px; background: var(--brand-blue-50); }
+.cc-table tr.cc-sub > td:first-child { padding-left: 2.4rem; color: var(--text-muted); font-weight: 500; }
 .cc-muted { color: var(--text-muted); }
 .cc-good { color: var(--over); font-weight: 600; }
 .cc-warn { color: var(--warn); font-weight: 600; }
@@ -285,8 +290,8 @@ try { const t = localStorage.getItem('cp-theme'); if (t === 'dark' || t === 'lig
     <ul class="legend" aria-label="Legend"><li><span class="i-actual">●</span> Actual</li><li><span class="i-short">▼</span> Shortfall</li><li><span class="i-over">▲</span> At or above target</li><li><span class="i-warn">◆</span> Watch</li></ul>
     <div class="cc-grid">
       <div class="cc-card" id="card-scorecard">
-        <div class="cc-card-head"><h2 id="cc-score-title">Category scorecard</h2><span class="cc-note">Month to date · click a row to drill in</span></div>
-        <div class="cc-scroll cc-short" id="cc-score-wrap">
+        <div class="cc-card-head"><h2 id="cc-score-title">Category scorecard</h2><span class="cc-note"><span id="cc-score-hint">Month to date · ▸ shows brands · click a row to drill in</span> <button type="button" class="cc-link" id="cc-score-toggle">Expand all</button></span></div>
+        <div class="cc-scroll" id="cc-score-wrap">
           <table class="cc-table" id="tbl-score" data-source="kpi" data-row-key="scope"></table>
           <table class="cc-table" id="tbl-score-brand" data-source="brand" data-row-key="brand" hidden></table>
         </div>
@@ -642,6 +647,7 @@ try { const t = localStorage.getItem('cp-theme'); if (t === 'dark' || t === 'lig
     const byBrand = s.level === 'category';
     tCat.hidden = byBrand; tBr.hidden = !byBrand;
     $('#cc-score-title').textContent = byBrand ? s.scope + ' brands' : 'Category scorecard';
+    $('#cc-score-toggle').hidden = byBrand; $('#cc-score-hint').textContent = byBrand ? 'Month to date · click a brand to filter' : 'Month to date · ▸ shows brands · click a row to drill in';
     if (byBrand) {
       if (failTable(tBr, 'brand')) return;
       drawTable(tBr, rowsOf('brand').filter((r) => r.category === s.scope), [
@@ -668,7 +674,48 @@ try { const t = localStorage.getItem('cp-theme'); if (t === 'dark' || t === 'lig
       { field: 'at_risk_value', label: 'Expiring', num: true, fmt: fmtMoney },
       { field: 'oos_skus', label: 'Out of stock', num: true, fmt: (v) => el('span', N(v) > 0 ? 'cc-bad' : 'cc-muted', fmtInt(v)) },
     ], { sort: { field: 'pace_pct', dir: 1 }, onClick: (r) => setScope(r.scope) });
+    addBrandRows(tCat, cats);
   }
+
+  // category rows open in place to show their brands; collapsed by default
+  local.open = new Set();
+  function addBrandRows(table, cats) {
+    const brands = rowsOf('brand'); const sku = rowsOf('sku');
+    const oos = {}; sku.forEach((r) => { if (r.status === 'Out of stock') oos[r.brand] = (oos[r.brand] || 0) + 1; });
+    const allOpen = cats.length > 0 && cats.every((c) => local.open.has(c.scope));
+    const tg = $('#cc-score-toggle'); tg.hidden = !cats.length; tg.textContent = allOpen ? 'Collapse all' : 'Expand all';
+    table.querySelectorAll('tbody tr.cc-click').forEach((tr) => {
+      const cat = tr.dataset.key; const open = local.open.has(cat);
+      const b = el('button', 'cc-exp', '▸'); b.type = 'button';
+      b.setAttribute('aria-expanded', String(open)); b.setAttribute('aria-label', (open ? 'Hide' : 'Show') + ' brands in ' + cat);
+      b.addEventListener('click', (e) => { e.stopPropagation(); if (local.open.has(cat)) local.open.delete(cat); else local.open.add(cat); redraw(); });
+      tr.cells[0].prepend(b);
+      if (!open) return;
+      const rows = brands.filter((r) => r.category === cat).sort((a, c) => N(c.mtd_sales) - N(a.mtd_sales));
+      let after = tr;
+      rows.forEach((r) => {
+        const fc = N(r.month_target) ? 1 + N(r.forecast_gap) / N(r.month_target) : null;
+        const cells = [
+          r.brand, fmtMoney(r.mtd_sales), paceBar(r.pace_pct),
+          el('span', 'cc-' + ({ ok: 'good', warn: 'warn', bad: 'bad' }[paceTone(fc)] || 'muted'), fmtPct(fc, 0)),
+          fmtDelta(r.yoy_pct), el('span', N(r.gm_pct) < N(r.margin_floor) ? 'cc-bad' : '', fmtPct(r.gm_pct)),
+          fmtDays(r.days_cover) + ' d', fmtMoney(r.at_risk_value),
+          sku.length ? el('span', oos[r.brand] ? 'cc-bad' : 'cc-muted', fmtInt(oos[r.brand] || 0)) : '…',
+        ];
+        const sub = el('tr', 'cc-sub cc-click'); sub.tabIndex = 0;
+        cells.forEach((v, i) => { const td = el('td', i ? 'cc-num' : ''); if (v instanceof Node) td.append(v); else td.textContent = v; sub.append(td); });
+        const go = () => dash.setParams({ scope: cat, brand: r.brand });
+        sub.addEventListener('click', go); sub.addEventListener('keydown', (e) => { if (e.key === 'Enter') go(); });
+        after.after(sub); after = sub;
+      });
+    });
+  }
+  $('#cc-score-toggle').addEventListener('click', () => {
+    const cats = inScope(rowsOf('kpi').filter((r) => r.level === 'category'), 'scope').map((r) => r.scope);
+    const allOpen = cats.every((c) => local.open.has(c));
+    cats.forEach((c) => (allOpen ? local.open.delete(c) : local.open.add(c)));
+    redraw();
+  });
 
   const alertsInScope = () => {
     const s = scopeInfo(); const rows = rowsOf('alerts'); const brand = params().brand;
