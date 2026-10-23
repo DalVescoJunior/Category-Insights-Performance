@@ -1,0 +1,987 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Category Pulse</title>
+<link rel="icon" href="/brand/aramtec-logo.png">
+<style>
+/* Design tokens follow Executive Pulse (Management-Cockpit src/app/globals.css): navy brand, green accents,
+   blue = actual, red = shortfall, green = over target, amber = watch. Status is never shown by colour alone. */
+:root {
+  --brand-blue: #2a3879; --brand-blue-50: #eef0f8; --green-light: #80bf44;
+  --bg: #f5f6f8; --surface: #ffffff; --surface-2: #f9fafb; --border: #dfe2e8; --text: #1b1f2a; --text-muted: #5b6070;
+  --actual: #2a3879; --short: #b3261e; --over: #166b3b; --pending: #5f6672; --warn: #9a5d00;
+  --chip-bg: #eef0f8; --chip-na-bg: #eceef1; --chip-na-text: #555a68; --warn-bg: #fff4dc; --warn-text: #7a4f00;
+  --tbl-head-bg: #233066; --tbl-head-text: #ffffff; --tbl-stripe: #f4f6fb; --tbl-hover: #e8edf9;
+  --tone-over-bg: #e3f3e9; --tone-over-text: #11663a; --tone-short-bg: #fbe6e4; --tone-short-text: #a8241c; --tone-warn-bg: #fdf1d8; --tone-warn-text: #8a5300;
+  --on-brand: #ffffff; --focus: #1a73e8; --radius: 10px;
+  --shadow: 0 1px 2px rgba(16, 24, 40, 0.06), 0 1px 3px rgba(16, 24, 40, 0.08);
+  /* names the chart code reads */
+  --color-panel: var(--surface); --color-fg: var(--text); --color-fg-muted: var(--text-muted);
+  --cds-series-1: #2a3879; --cds-chart-grid: #eceef3; --cds-chart-axis: #c9cdd6; --cds-chart-reference: #5f6672; --cds-chart-muted: #b9c0d4; --cds-chart-status-critical: #b3261e;
+  --cds-surface-popover: #ffffff; --cds-border: var(--border); --cds-shadow-popover: 0 6px 20px rgba(16, 24, 40, .14); --cds-text-secondary: var(--text-muted);
+  color-scheme: light;
+}
+:root[data-theme="dark"] {
+  --brand-blue: #9fb0ff; --brand-blue-50: #232a45;
+  --bg: #12151c; --surface: #1b1f29; --surface-2: #222734; --border: #323848; --text: #e8eaf0; --text-muted: #a3a9b8;
+  --actual: #8ea2ff; --short: #ff8a80; --over: #6fcf8f; --pending: #9aa0aa; --warn: #f2c063;
+  --chip-bg: #2a3150; --chip-na-bg: #262a33; --chip-na-text: #9aa0aa; --warn-bg: #3a2e12; --warn-text: #f3cf7a;
+  --tbl-head-bg: #2c3762; --tbl-head-text: #f1f3fa; --tbl-stripe: #202534; --tbl-hover: #2a3043;
+  --tone-over-bg: rgba(111, 207, 143, 0.14); --tone-over-text: #7fdc9e; --tone-short-bg: rgba(255, 138, 128, 0.14); --tone-short-text: #ff9a90; --tone-warn-bg: rgba(242, 192, 99, 0.14); --tone-warn-text: #f2c063;
+  --on-brand: #12151c;
+  --cds-series-1: #8ea2ff; --cds-chart-grid: #262b38; --cds-chart-axis: #3a4152; --cds-chart-reference: #a3a9b8; --cds-chart-muted: #4b5470; --cds-chart-status-critical: #ff8a80;
+  --cds-surface-popover: #222734; --cds-shadow-popover: 0 6px 20px rgba(0, 0, 0, .45);
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans", Arial, sans-serif; }
+a { color: var(--brand-blue); }
+:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+[hidden] { display: none !important; }
+.dash-skeleton { display: inline-block; min-width: 4ch; color: transparent !important; border-radius: 4px; background: color-mix(in srgb, var(--text) 10%, transparent); }
+
+/* ---------- shell ---------- */
+.app { display: grid; grid-template-columns: 232px minmax(0, 1fr); min-height: 100vh; }
+.sidebar { background: var(--surface); border-right: 1px solid var(--border); padding: 16px 12px; display: flex; flex-direction: column; gap: 4px; position: sticky; top: 0; height: 100vh; overflow-y: auto; }
+.sidebar .logo { padding: 4px 8px 16px; line-height: 0; }
+.sidebar .logo img { width: 150px; height: auto; }
+.logo-dark { display: none; }
+:root[data-theme="dark"] .logo-light { display: none; }
+:root[data-theme="dark"] .logo-dark { display: inline; }
+.nav-link { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 10px; border-radius: 8px; color: var(--text); text-decoration: none; font-size: 15px; }
+.nav-link:hover { background: var(--surface-2); }
+.nav-link[aria-current="page"] { background: var(--brand-blue-50); color: var(--brand-blue); font-weight: 600; }
+.nav-count { font-size: 11px; font-weight: 700; color: #fff; background: var(--short); border-radius: 999px; padding: 1px 7px; }
+:root[data-theme="dark"] .nav-count { color: #12151c; }
+.nav-section { margin-top: 16px; padding: 0 10px; font-size: 12px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; }
+.nav-user { padding: 6px 10px 2px; font-weight: 600; }
+.nav-role { padding: 0 10px 6px; font-size: 12px; color: var(--text-muted); }
+.main { min-width: 0; padding: 20px 28px 40px; }
+.topbar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+.topbar h1 { font-size: 26px; margin: 0; margin-right: auto; color: var(--text); }
+.badge { display: inline-flex; align-items: center; gap: 6px; padding: 4px 12px; border-radius: 999px; font-size: 13px; font-weight: 600; }
+.badge-demo { background: var(--warn-bg); color: var(--warn-text); }
+.asof { font-size: 13px; color: var(--text-muted); }
+.btn { font: inherit; font-size: 14px; padding: 7px 12px; border-radius: 6px; border: 1px solid var(--border); background: var(--surface); color: var(--text); cursor: pointer; text-decoration: none; display: inline-block; }
+.btn:hover { background: var(--surface-2); }
+.btn-primary { background: var(--brand-blue); border-color: var(--brand-blue); color: var(--on-brand); }
+.btn-primary:hover { background: var(--brand-blue); filter: brightness(1.1); }
+.seg { display: inline-flex; }
+.seg .btn { border-radius: 0; }
+.seg .btn:first-child { border-radius: 6px 0 0 6px; }
+.seg .btn:last-child { border-radius: 0 6px 6px 0; margin-left: -1px; }
+.seg .btn[aria-pressed="true"] { background: var(--brand-blue); border-color: var(--brand-blue); color: var(--on-brand); }
+
+.filterbar { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px; display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; }
+.field { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--text-muted); min-width: 0; }
+.field select { font: inherit; font-size: 14px; color: var(--text); background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 8px 10px; min-width: 11rem; max-width: 100%; }
+.field select:disabled { background: var(--chip-na-bg); color: var(--chip-na-text); }
+.filterbar .spacer { margin-left: auto; }
+.context-line { font-size: 13px; color: var(--text-muted); margin: 12px 0 16px; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; margin: -8px 0 14px; }
+.chip-f { display: inline-flex; align-items: center; gap: 4px; padding: 3px 4px 3px 10px; border-radius: 999px; background: var(--chip-bg); font-size: 12px; }
+.chip-f button { font: inherit; border: 0; background: none; color: var(--brand-blue); cursor: pointer; padding: 0 6px; border-radius: 999px; }
+
+/* Narrow screens: navigation on top, as in Executive Pulse */
+@media (max-width: 860px), (orientation: landscape) and (max-height: 500px) {
+  .app { grid-template-columns: minmax(0, 1fr); }
+  .sidebar { position: static; height: auto; flex-direction: row; flex-wrap: wrap; border-right: 0; border-bottom: 1px solid var(--border); padding: 12px 16px; }
+  .sidebar .logo { flex-basis: 100%; padding: 0 6px 6px; }
+  .sidebar .logo img { width: 96px; }
+  .nav-section, .nav-user, .nav-role { display: none; }
+  .nav-link { font-size: 14px; padding: 6px 10px; }
+  .main { padding: 16px; }
+  .topbar h1 { font-size: 21px; flex-basis: 100%; }
+  .field { flex: 1 1 9rem; }
+  .field select { min-width: 0; width: 100%; }
+}
+@media print {
+  .sidebar, .filterbar, .topbar .btn, .topbar .seg { display: none !important; }
+  .app { display: block; }
+  .cc-scroll { max-height: none !important; overflow: visible !important; }
+}
+
+/* ---------- page content (cc-* classes are drawn by the script) ---------- */
+.cc { display: flex; flex-direction: column; gap: 16px; }
+.cc-page { display: flex; flex-direction: column; gap: 16px; }
+.cc-takeaway { margin: 0; padding: 12px 16px; background: var(--surface); border: 1px solid var(--border); border-left: 4px solid var(--green-light); border-radius: var(--radius); line-height: 1.5; box-shadow: var(--shadow); }
+.cc-takeaway b { font-weight: 650; color: var(--brand-blue); }
+.kpi-row { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 200px), 1fr)); gap: 12px; }
+.kpi { background: var(--surface); border: 1px solid var(--border); border-top: 3px solid var(--border); border-radius: 8px; padding: 12px 14px; box-shadow: var(--shadow); min-width: 0; }
+.kpi-actual { border-top-color: var(--actual); }
+.kpi-short { border-top-color: var(--short); }
+.kpi-over { border-top-color: var(--over); }
+.kpi-warn { border-top-color: var(--warn); }
+.kpi-label { font-size: 14px; color: var(--text-muted); }
+.kpi-value { font-size: 26px; font-weight: 700; margin-top: 4px; font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
+.kpi-icon { font-size: 15px; vertical-align: 4px; margin-right: 6px; }
+.kpi-actual .kpi-icon { color: var(--actual); }
+.kpi-short .kpi-icon { color: var(--short); }
+.kpi-over .kpi-icon { color: var(--over); }
+.kpi-warn .kpi-icon { color: var(--warn); }
+.kpi-sub { font-size: 13px; color: var(--text-muted); margin-top: 4px; line-height: 1.35; }
+.legend { list-style: none; display: flex; flex-wrap: wrap; gap: 14px; padding: 0; margin: 0; font-size: 12px; color: var(--text-muted); }
+.legend .i-actual { color: var(--actual); } .legend .i-short { color: var(--short); } .legend .i-over { color: var(--over); } .legend .i-warn { color: var(--warn); }
+
+.cc-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 40rem), 1fr)); gap: 16px; align-items: start; }
+.cc-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; display: flex; flex-direction: column; gap: 8px; min-width: 0; box-shadow: var(--shadow); }
+.cc-card-wide { grid-column: 1 / -1; }
+.cc-card-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px; }
+.cc-card h2 { margin: 0; font-size: 17px; font-weight: 650; }
+.cc-note { margin: 0; font-size: 12.5px; color: var(--text-muted); line-height: 1.45; }
+.cc-link { font: inherit; font-size: 13px; background: none; border: 0; padding: 0; color: var(--brand-blue); text-decoration: underline; text-underline-offset: 2px; cursor: pointer; }
+.cc-legend { display: flex; flex-wrap: wrap; gap: 12px; font-size: 12px; color: var(--text-muted); }
+.cc-legend span { display: inline-flex; align-items: center; gap: 6px; }
+.cc-sw { width: 14px; height: 0; border-top: 2px solid; display: inline-block; }
+.cc-sw-dash { border-top-style: dashed; }
+.cc-sw-box { width: 10px; height: 10px; border: 0; border-radius: 2px; }
+.cc-chart { position: relative; width: 100%; min-height: 240px; }
+.cc-chart svg { display: block; overflow: visible; }
+.cc-chart text { fill: var(--text-muted); font-size: 12px; font-family: inherit; }
+.cc-tip { position: absolute; pointer-events: none; background: var(--cds-surface-popover); border: 1px solid var(--border); border-radius: 8px; box-shadow: var(--cds-shadow-popover); padding: 4px 8px; font-size: 12px; white-space: nowrap; z-index: 3; font-variant-numeric: tabular-nums; }
+.cc-tip .cc-tip-h { color: var(--text-muted); margin-bottom: 2px; }
+.cc-tip .cc-tip-r { display: flex; align-items: center; gap: 6px; }
+
+/* Executive tables: navy header, banded rows, centred numbers */
+.cc-scroll { overflow: auto; max-height: 34rem; border: 1px solid var(--border); border-radius: 8px; }
+.cc-scroll.cc-short { max-height: 24rem; }
+.cc-table { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 13px; font-variant-numeric: tabular-nums; }
+.cc-table th { position: sticky; top: 0; z-index: 2; background: var(--tbl-head-bg); color: var(--tbl-head-text); font-size: 12px; font-weight: 600; text-align: left; padding: 0; white-space: nowrap; }
+.cc-table th button { font: inherit; color: inherit; background: none; border: 0; padding: 9px 8px; cursor: pointer; width: 100%; text-align: inherit; }
+.cc-table th[aria-sort="ascending"] button::after { content: " ↑"; }
+.cc-table th[aria-sort="descending"] button::after { content: " ↓"; }
+.cc-table th.cc-num, .cc-table td.cc-num { text-align: center; }
+.cc-table td { padding: 8px; background: var(--surface); vertical-align: middle; white-space: nowrap; }
+.cc-table tbody tr:nth-child(even) > td { background: var(--tbl-stripe); }
+.cc-table tbody tr.cc-click { cursor: pointer; }
+.cc-table tbody tr:hover > td { background: var(--tbl-hover); }
+.cc-table td.cc-wrap { white-space: normal; min-width: 12rem; }
+.cc-table td.cc-name { font-weight: 600; }
+.cc-muted { color: var(--text-muted); }
+.cc-good { color: var(--over); font-weight: 600; }
+.cc-warn { color: var(--warn); font-weight: 600; }
+.cc-bad { color: var(--short); font-weight: 600; }
+.cc-chip { display: inline-flex; align-items: center; gap: 5px; border-radius: 999px; padding: 2px 9px; font-size: 12px; font-weight: 600; white-space: nowrap; background: var(--chip-na-bg); color: var(--chip-na-text); }
+.cc-chip[data-tone="bad"] { background: var(--tone-short-bg); color: var(--tone-short-text); }
+.cc-chip[data-tone="bad"]::before { content: "▼"; font-size: 9px; }
+.cc-chip[data-tone="warn"] { background: var(--tone-warn-bg); color: var(--tone-warn-text); }
+.cc-chip[data-tone="warn"]::before { content: "◆"; font-size: 9px; }
+.cc-chip[data-tone="ok"] { background: var(--tone-over-bg); color: var(--tone-over-text); }
+.cc-chip[data-tone="ok"]::before { content: "▲"; font-size: 9px; }
+.cc-bar { display: inline-grid; grid-template-columns: 4.5rem auto; align-items: center; gap: 6px; }
+.cc-bar-track { position: relative; height: 6px; border-radius: 3px; background: color-mix(in srgb, var(--text) 10%, transparent); }
+.cc-bar-fill { position: absolute; inset: 0 auto 0 0; border-radius: 3px; background: var(--actual); }
+.cc-bar-fill[data-tone="bad"] { background: var(--short); }
+.cc-bar-fill[data-tone="warn"] { background: var(--warn); }
+.cc-bar-fill[data-tone="ok"] { background: var(--over); }
+.cc-bar-mark { position: absolute; top: -3px; bottom: -3px; width: 1px; background: var(--text); }
+.cc-band { position: absolute; top: 0; bottom: 0; background: color-mix(in srgb, var(--over) 28%, transparent); }
+.cc-dot { position: absolute; top: 50%; width: 8px; height: 8px; margin: -4px 0 0 -4px; border-radius: 50%; background: var(--brand-blue); box-shadow: 0 0 0 2px var(--surface); }
+.cc-filters { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.cc-pill { font: inherit; font-size: 13px; display: inline-flex; align-items: center; gap: 6px; padding: 4px 12px; border: 1px solid var(--border); border-radius: 999px; background: var(--surface); color: var(--text); cursor: pointer; }
+.cc-pill b { font-weight: 700; }
+.cc-pill[aria-pressed="true"] { background: var(--brand-blue); border-color: var(--brand-blue); color: var(--on-brand); }
+.cc-select, .cc-search { font: inherit; font-size: 13px; color: var(--text); background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 6px 10px; max-width: 100%; }
+.cc-search { width: min(100%, 18rem); }
+.cc-empty { padding: 12px; color: var(--text-muted); font-size: 13px; white-space: normal !important; }
+.cc-fail { display: flex; align-items: center; justify-content: center; gap: 6px; min-height: 120px; color: var(--text-muted); font-size: 13px; }
+.cc-fail::before { content: "▼"; color: var(--short); font-size: 10px; }
+.cc-defs { margin: 0; padding-left: 1.1rem; font-size: 13px; color: var(--text-muted); line-height: 1.6; columns: 2 18rem; column-gap: 32px; }
+.app-footer { display: flex; align-items: center; gap: 12px; margin-top: 32px; padding-top: 14px; border-top: 1px solid var(--border); color: var(--text-muted); font-size: 12px; }
+@media (max-width: 860px) {
+  .kpi-row { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .kpi { padding: 10px; }
+  .kpi-value { font-size: 19px; }
+  .kpi-label, .kpi-sub { font-size: 12px; }
+}
+</style>
+<script>
+try { const t = localStorage.getItem('cp-theme'); if (t === 'dark' || t === 'light') document.documentElement.dataset.theme = t; } catch (e) {}
+</script>
+</head>
+<body>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
+<script>
+// Minimal stand-in for the dashboard runtime: loads each dataset from /api/data/<id>
+(function () {
+  const cache = {}; const subs = []; const defaults = { scope: 'All categories', brand: null };
+  let params = Object.assign({}, defaults); let queued = false;
+  const notify = () => { if (queued) return; queued = true; requestAnimationFrame(() => { queued = false; subs.forEach((fn) => { try { fn(); } catch (e) { console.error(e); } }); }); };
+  const load = (id, refresh) => {
+    cache[id] = Object.assign({ status: 'loading', data: [], columns: [], meta: [] }, cache[id] && cache[id].status === 'ok' ? { status: 'ok', data: cache[id].data, columns: cache[id].columns, refreshing: true } : {});
+    fetch('/api/data/' + encodeURIComponent(id) + (refresh ? '?refresh=1' : ''))
+      .then((r) => { if (r.status === 401) { location.href = '/signin'; throw new Error('signed out'); } return r.json().then((b) => ({ ok: r.ok, b })); })
+      .then(({ ok, b }) => { cache[id] = ok ? { status: 'ok', data: b.rows, columns: b.columns, meta: [], refreshing: false } : { status: 'error', data: [], message: b.error }; notify(); })
+      .catch((e) => { cache[id] = { status: 'error', data: [], message: String(e) }; notify(); });
+  };
+  const css = (name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+  window.dash = {
+    data(id) { if (!cache[id]) load(id); return cache[id]; },
+    onData(fn) { subs.push(fn); fn(); },
+    params() { return Object.assign({}, params); },
+    setParams(o) { params = Object.assign({}, params, o); notify(); },
+    resetParams() { params = Object.assign({}, defaults); notify(); },
+    setLink(name) { try { history.replaceState(null, '', '#' + name); } catch (e) {} },
+    refresh(id) { load(id, true); },
+    notify,
+    get colors() { return [css('--cds-series-1'), '#80bf44', '#c27c2c', '#3c8c6e', '#b8487a', '#5b7fbf', '#8a8f3a', '#6b6b6b']; },
+  };
+  let w = window.innerWidth; window.addEventListener('resize', () => { if (window.innerWidth !== w) { w = window.innerWidth; notify(); } });
+})();
+</script>
+<div class="app" id="cc-app">
+  <aside class="sidebar">
+    <div class="logo">
+      <img class="logo-light" src="/brand/aramtec-logo.png" alt="Aramtec" width="150" height="95">
+      <img class="logo-dark" src="/brand/aramtec-logo-white.png" alt="Aramtec" width="150" height="95">
+    </div>
+    <a class="nav-link" href="#overview" data-page="overview">Category Overview</a>
+    <a class="nav-link" href="#sales" data-page="sales">Sales vs Target</a>
+    <a class="nav-link" href="#stock" data-page="stock">Stock &amp; Cover</a>
+    <a class="nav-link" href="#aging" data-page="aging">Aging &amp; Expiry</a>
+    <a class="nav-link" href="#customers" data-page="customers">Customers &amp; Margin</a>
+    <a class="nav-link" href="#alerts" data-page="alerts">Alerts <span class="nav-count" id="nav-alerts" hidden></span></a>
+    <div class="nav-section">Account</div>
+    <div class="nav-user" id="nav-user"></div>
+    <div class="nav-role" id="nav-role"></div>
+    <a class="nav-link" href="/logout">Sign out</a>
+  </aside>
+
+  <main class="main">
+    <div class="topbar">
+      <h1 id="cc-page-title">Category Overview</h1>
+      <span class="badge badge-demo">⚠ Demo data (synthetic)</span>
+      <span class="asof">Data as of: <span id="cc-asof">—</span></span>
+      <button type="button" class="btn" id="cc-print">Print or PDF</button>
+      <span class="seg" role="group" aria-label="Theme">
+        <button type="button" class="btn" data-theme-set="light">☀ Light</button>
+        <button type="button" class="btn" data-theme-set="dark">☾ Dark</button>
+      </span>
+    </div>
+
+    <div class="filterbar" role="search" aria-label="Filters">
+      <label class="field">Category manager
+        <select id="f-manager"></select>
+      </label>
+      <label class="field">Category
+        <select id="f-category"></select>
+      </label>
+      <label class="field">Brand
+        <select id="f-brand"></select>
+      </label>
+      <span class="spacer"></span>
+      <button type="button" class="btn" id="f-clear">Clear all</button>
+    </div>
+    <p class="context-line" id="cc-context">—</p>
+    <div class="chips" id="cc-chips"></div>
+
+<div class="cc" id="cc">
+  <p class="cc-takeaway" id="cc-takeaway"><span class="dash-skeleton">—</span></p>
+  <section class="cc-page" id="overview">
+    <div class="kpi-row" id="cc-tiles"></div>
+    <ul class="legend" aria-label="Legend"><li><span class="i-actual">●</span> Actual</li><li><span class="i-short">▼</span> Shortfall</li><li><span class="i-over">▲</span> At or above target</li><li><span class="i-warn">◆</span> Watch</li></ul>
+    <div class="cc-grid">
+      <div class="cc-card" id="card-scorecard">
+        <div class="cc-card-head"><h2 id="cc-score-title">Category scorecard</h2><span class="cc-note">Month to date · click a row to drill in</span></div>
+        <div class="cc-scroll cc-short" id="cc-score-wrap">
+          <table class="cc-table" id="tbl-score" data-source="kpi" data-row-key="scope"></table>
+          <table class="cc-table" id="tbl-score-brand" data-source="brand" data-row-key="brand" hidden></table>
+        </div>
+      </div>
+      <div class="cc-card" id="card-topalerts">
+        <div class="cc-card-head"><h2>Act on these first</h2><button type="button" class="cc-link" data-goto="alerts">All alerts</button></div>
+        <p class="cc-note">Highest severity, then money at stake.</p>
+        <div class="cc-scroll cc-short">
+          <table class="cc-table" id="tbl-topalerts" data-source="alerts" data-row-key="alert_id"></table>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="cc-page" id="sales" hidden>
+    <div class="cc-grid">
+      <div class="cc-card" id="card-cum">
+        <div class="cc-card-head"><h2>Month to date, cumulative</h2><span class="cc-note">Target is phased evenly across the month</span></div>
+        <div class="cc-legend" aria-hidden="true">
+          <span><i class="cc-sw" id="lg-actual"></i>Actual</span>
+          <span><i class="cc-sw cc-sw-dash" style="border-color: var(--cds-chart-reference)"></i>Target</span>
+          <span><i class="cc-sw" style="border-color: var(--cds-chart-muted)"></i>Same days last year</span>
+        </div>
+        <div class="cc-chart" id="ch-cum" data-source="daily"></div>
+      </div>
+      <div class="cc-card" id="card-monthly">
+        <div class="cc-card-head"><h2>This year by month</h2><span class="cc-note">Sales against monthly target and last year</span></div>
+        <div class="cc-legend" aria-hidden="true">
+          <span><i class="cc-sw cc-sw-box" id="lg-bar"></i>Sales</span>
+          <span><i class="cc-sw" style="border-color: var(--cds-chart-reference)"></i>Target</span>
+          <span><i class="cc-sw cc-sw-box" style="background: var(--cds-chart-muted); border-radius: 50%"></i>Last year</span>
+        </div>
+        <div class="cc-chart" id="ch-monthly" data-source="monthly"></div>
+      </div>
+      <div class="cc-card cc-card-wide" id="card-brands">
+        <div class="cc-card-head"><h2>Brands</h2><span class="cc-note">Click a brand to filter the page to it</span></div>
+        <div class="cc-scroll">
+          <table class="cc-table" id="tbl-brands" data-source="brand" data-row-key="brand"></table>
+        </div>
+      </div>
+      <div class="cc-card cc-card-wide" id="card-segments">
+        <div class="cc-card-head"><h2>Customer segments</h2><span class="cc-note">Month to date against the same days last year</span></div>
+        <div class="cc-scroll cc-short">
+          <table class="cc-table" id="tbl-segments" data-source="channel" data-row-key="scope,segment"></table>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="cc-page" id="stock" hidden>
+    <div class="cc-card" id="card-sku">
+      <div class="cc-card-head"><h2>Items by hub</h2><span class="cc-note">Cover = available in-date stock ÷ average daily units sold over 28 days. Green band = the category's target range.</span></div>
+      <div class="cc-filters" id="cc-status-filters"></div>
+      <div class="cc-filters">
+        <input type="search" id="cc-sku-search" class="cc-search" placeholder="Search item, brand or hub" aria-label="Search items">
+        <span class="cc-note" id="cc-sku-count"></span>
+      </div>
+      <div class="cc-scroll">
+        <table class="cc-table" id="tbl-sku" data-source="sku" data-row-key="item_code,hub"></table>
+      </div>
+    </div>
+  </section>
+
+  <section class="cc-page" id="aging" hidden>
+    <div class="cc-grid">
+      <div class="cc-card" id="card-life">
+        <div class="cc-card-head"><h2>Shelf life left</h2><span class="cc-note">Stock value by days until expiry</span></div>
+        <div class="cc-chart" id="ch-life" data-source="aging"></div>
+      </div>
+      <div class="cc-card" id="card-age">
+        <div class="cc-card-head"><h2>Days in stock</h2><span class="cc-note">Stock value by days since receipt</span></div>
+        <div class="cc-chart" id="ch-age" data-source="aging"></div>
+      </div>
+      <div class="cc-card cc-card-wide" id="card-expiry">
+        <div class="cc-card-head"><h2>Expired or expiring within 30 days</h2><span class="cc-note">Sell, bundle or move these first</span></div>
+        <div class="cc-scroll">
+          <table class="cc-table" id="tbl-expiry" data-source="sku" data-row-key="item_code,hub"></table>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="cc-page" id="customers" hidden>
+    <div class="cc-grid">
+      <div class="cc-card cc-card-wide" id="card-cust">
+        <div class="cc-card-head"><h2>Top customers against their usual pace</h2><span class="cc-note">Expected = average of the last three months, pro-rated to today</span></div>
+        <div class="cc-scroll">
+          <table class="cc-table" id="tbl-cust" data-source="customers" data-row-key="scope,customer"></table>
+        </div>
+      </div>
+      <div class="cc-card cc-card-wide" id="card-leak">
+        <div class="cc-card-head"><h2>Sold under the margin floor</h2><span class="cc-note">This month, more than 3 points under the category floor. Gap = gross profit lost against the floor.</span></div>
+        <div class="cc-scroll">
+          <table class="cc-table" id="tbl-leak" data-source="leak" data-row-key="leak_id"></table>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="cc-page" id="alerts" hidden>
+    <div class="cc-card" id="card-alerts">
+      <div class="cc-card-head"><h2>Alerts</h2><span class="cc-note">Owner = category assistant; escalate Critical to the manager</span></div>
+      <div class="cc-filters" id="cc-sev-filters"></div>
+      <div class="cc-filters">
+        <label class="cc-note" for="cc-type">Type</label>
+        <select id="cc-type" class="cc-select" data-source="alerts" aria-label="Alert type"></select>
+      </div>
+      <div class="cc-scroll">
+        <table class="cc-table" id="tbl-alerts" data-source="alerts" data-row-key="alert_id"></table>
+      </div>
+    </div>
+    <div class="cc-card" id="card-defs">
+      <h2>How the numbers work</h2>
+      <ul class="cc-defs">
+        <li>Pace: sales month to date ÷ the month's target phased evenly to today.</li>
+        <li>Forecast: sales month to date scaled by how the same month finished last year, so it follows the season.</li>
+        <li>Days of cover: available in-date stock ÷ average units sold per day over the last 28 days, per item and hub.</li>
+        <li>Low cover and overstock use each category's own minimum and maximum days.</li>
+        <li>Expiring: available stock with 30 days or less of shelf life left.</li>
+        <li>Margin floor: the lowest gross margin the category accepts; lines below it show under Customers &amp; Margin.</li>
+        <li>Customer pace: this month against the average of the three months before, pro-rated to today.</li>
+        <li>All names and figures are generated sample data.</li>
+      </ul>
+    </div>
+  </section>
+</div>
+    <footer class="app-footer"><span>Category Pulse · demo with generated data; names, figures and brands are invented.</span></footer>
+  </main>
+</div>
+<script>window.CP_USER = /*USER*/null;</script>
+<script>
+(function () {
+  const ALL = 'All categories';
+  const $ = (s) => document.querySelector(s);
+  const N = (v) => (v === null || v === undefined || v === '' ? null : Number(v));
+  const compact = new Intl.NumberFormat('en', { notation: 'compact', maximumFractionDigits: 1 });
+  const fmtMoney = (v) => (N(v) === null ? '—' : compact.format(N(v)));
+  const fmtInt = (v) => (N(v) === null ? '—' : d3.format(',')(Math.round(N(v))));
+  const fmtPct = (v, d = 1) => (N(v) === null ? '—' : (N(v) * 100).toFixed(d) + '%');
+  const fmtDelta = (v) => (N(v) === null ? '—' : (N(v) >= 0 ? '+' : '−') + Math.abs(N(v) * 100).toFixed(1) + '%');
+  const fmtGap = (v) => (N(v) === null ? '—' : (N(v) >= 0 ? '+' : '−') + compact.format(Math.abs(N(v))));
+  const fmtDays = (v) => (N(v) === null ? '—' : d3.format(',.0f')(N(v)));
+  const fmtDate = (s) => (s ? d3.utcFormat('%-d %b')(new Date(s + 'T00:00:00Z')) : '—');
+  const rowsOf = (id) => { const d = dash.data(id); return d.status === 'ok' && Array.isArray(d.data) ? d.data : []; };
+  const failed = (id) => ['error', 'missing'].includes(dash.data(id).status);
+  const paceTone = (p) => (N(p) === null ? '' : N(p) >= 1 ? 'ok' : N(p) >= 0.95 ? 'warn' : 'bad');
+  const STATUS_TONE = { 'Out of stock': 'bad', 'Low cover': 'warn', 'Overstock': 'warn', 'No sales 28d': '', 'Healthy': 'ok' };
+  const SEV_TONE = { Critical: 'bad', High: 'warn', Medium: '' };
+  const TREND_TONE = { Lapsed: 'bad', Declining: 'warn', Steady: '', Growing: 'ok' };
+
+  // ---------- state ----------
+  const local = { page: 'overview', status: 'All', sev: 'All', type: '', search: '', sorts: {} };
+  const params = () => Object.assign({ scope: ALL, brand: null }, dash.params());
+  const kpiRow = (scope) => rowsOf('kpi').find((r) => r.scope === scope);
+  const scopeInfo = () => {
+    const p = params();
+    const r = kpiRow(p.scope) || kpiRow(ALL);
+    return { scope: r ? r.scope : ALL, level: r ? r.level : 'total', row: r };
+  };
+  // rows of a category-grained dataset that belong to the current view
+  const inScope = (rows, catField = 'category', mgrField = 'manager') => {
+    const s = scopeInfo();
+    if (s.level === 'total') return rows;
+    if (s.level === 'manager') return rows.filter((r) => r[mgrField] === s.scope);
+    return rows.filter((r) => r[catField] === s.scope);
+  };
+  const setScope = (scope) => dash.setParams({ scope, brand: null });
+
+  // ---------- elements ----------
+  const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text !== undefined) e.textContent = text; return e; };
+  const chip = (text, tone) => { const c = el('span', 'cc-chip', text); if (tone) c.dataset.tone = tone; return c; };
+  const paceBar = (p) => {
+    const w = el('span', 'cc-bar'); const t = el('span', 'cc-bar-track'); const f = el('span', 'cc-bar-fill');
+    const v = N(p) || 0; f.style.width = Math.min(100, (v / 1.25) * 100) + '%'; f.dataset.tone = paceTone(p);
+    const m = el('span', 'cc-bar-mark'); m.style.left = (1 / 1.25) * 100 + '%';
+    t.append(f, m); w.append(t, el('span', '', fmtPct(p, 0))); return w;
+  };
+  const coverBar = (r) => {
+    const w = el('span', 'cc-bar'); const t = el('span', 'cc-bar-track');
+    const mn = N(r.cover_min), mx = N(r.cover_max), c = N(r.days_cover);
+    const top = Math.max(mx * 1.6, 10);
+    const band = el('span', 'cc-band'); band.style.left = (mn / top) * 100 + '%'; band.style.width = ((mx - mn) / top) * 100 + '%';
+    t.append(band);
+    if (c !== null) { const d = el('span', 'cc-dot'); d.style.left = Math.min(100, (c / top) * 100) + '%'; t.append(d); }
+    w.append(t, el('span', '', c === null ? '—' : fmtDays(c) + ' d')); return w;
+  };
+
+  // ---------- tables ----------
+  // cols: {field, label, num, fmt(v,row) -> string|Node, cls, sort(row)}
+  function drawTable(table, rows, cols, opts = {}) {
+    const key = table.id;
+    const sort = local.sorts[key] || opts.sort || null;
+    let data = rows.slice();
+    if (sort) {
+      const col = cols.find((c) => c.field === sort.field);
+      const get = col && col.sort ? col.sort : (r) => r[sort.field];
+      const isNum = col && col.num;
+      data.sort((a, b) => {
+        let x = get(a), y = get(b);
+        if (isNum) { x = N(x); y = N(y); if (x === null) return 1; if (y === null) return -1; return sort.dir * (x - y); }
+        return sort.dir * String(x ?? '').localeCompare(String(y ?? ''));
+      });
+    }
+    if (opts.limit) data = data.slice(0, opts.limit);
+    const thead = el('thead'); const hr = el('tr');
+    cols.forEach((c) => {
+      const th = el('th'); th.dataset.field = c.field; if (c.num) th.classList.add('cc-num');
+      if (sort && sort.field === c.field) th.setAttribute('aria-sort', sort.dir > 0 ? 'ascending' : 'descending');
+      const b = el('button', '', c.label); b.type = 'button';
+      b.addEventListener('click', () => {
+        const cur = local.sorts[key] || opts.sort || {};
+        local.sorts[key] = { field: c.field, dir: cur.field === c.field ? -cur.dir : (c.num ? -1 : 1) };
+        redraw();
+      });
+      th.append(b); hr.append(th);
+    });
+    thead.append(hr);
+    const tbody = el('tbody');
+    if (!data.length) {
+      const tr = el('tr'); const td = el('td', 'cc-empty', opts.empty || 'Nothing to show for this view.'); td.colSpan = cols.length; tr.append(td); tbody.append(tr);
+    }
+    data.forEach((r) => {
+      const tr = el('tr');
+      const kf = (table.dataset.rowKey || '').split(',');
+      tr.dataset.key = kf.map((k) => (kf.length > 1 ? encodeURIComponent(r[k]) : r[k])).join(',');
+      if (opts.onClick) { tr.classList.add('cc-click'); tr.tabIndex = 0; tr.addEventListener('click', () => opts.onClick(r)); tr.addEventListener('keydown', (e) => { if (e.key === 'Enter') opts.onClick(r); }); }
+      cols.forEach((c) => {
+        const td = el('td', c.cls || ''); if (c.num) td.classList.add('cc-num');
+        const v = c.fmt ? c.fmt(r[c.field], r) : (r[c.field] ?? '—');
+        if (v instanceof Node) td.append(v); else td.textContent = v;
+        tr.append(td);
+      });
+      tbody.append(tr);
+    });
+    table.replaceChildren(thead, tbody);
+  }
+  function failTable(table, id) { if (failed(id)) { const tb = el('tbody'); const tr = el('tr'); const td = el('td'); td.append(el('div', 'cc-fail', 'Failed to load')); tr.append(td); tb.append(tr); table.replaceChildren(tb); return true; } return false; }
+
+  // ---------- filters: category manager, category, brand ----------
+  const USER = window.CP_USER || { name: 'Demo user', role: 'All categories', manager: null };
+  const fMgr = $('#f-manager'), fCat = $('#f-category'), fBrand = $('#f-brand');
+  const pick = () => {
+    const s = scopeInfo();
+    const mgr = s.level === 'manager' ? s.scope : s.level === 'category' ? s.row.manager : '';
+    return { mgr, cat: s.level === 'category' ? s.scope : '' };
+  };
+  fMgr.addEventListener('change', () => setScope(fMgr.value || ALL));
+  fCat.addEventListener('change', () => setScope(fCat.value || fMgr.value || ALL));
+  fBrand.addEventListener('change', () => dash.setParams({ brand: fBrand.value || null }));
+  $('#f-clear').addEventListener('click', () => setScope(USER.manager || ALL));
+  if (USER.manager && params().scope === ALL) dash.setParams({ scope: USER.manager });
+  const opt = (label, value) => new Option(label, value);
+  function drawScope() {
+    const k = rowsOf('kpi');
+    [fMgr, fCat, fBrand].forEach((s) => { s.disabled = !k.length; });
+    if (!k.length) { [fMgr, fCat, fBrand].forEach((s) => s.replaceChildren(opt(failed('kpi') ? 'Not loaded' : 'Loading…', ''))); return; }
+    const { mgr, cat } = pick();
+    const mgrs = k.filter((r) => r.level === 'manager' && (!USER.manager || r.scope === USER.manager));
+    fMgr.replaceChildren(...(USER.manager ? [] : [opt('All managers', '')]), ...mgrs.map((r) => opt(r.scope, r.scope)));
+    fMgr.value = mgr; fMgr.disabled = !!USER.manager;
+    const cats = k.filter((r) => r.level === 'category' && (!mgr || r.manager === mgr) && (!USER.manager || r.manager === USER.manager));
+    fCat.replaceChildren(opt(mgr ? 'All ' + mgr.split(' ')[0] + '’s categories' : 'All categories', ''), ...cats.map((r) => opt(r.scope, r.scope)));
+    fCat.value = cat;
+    const brands = Array.from(new Set(inScope(rowsOf('brand')).map((r) => r.brand))).sort();
+    const brand = params().brand;
+    fBrand.replaceChildren(opt('All brands', ''), ...brands.map((b) => opt(b, b)));
+    fBrand.value = brands.includes(brand) ? brand : '';
+    if (brand && rowsOf('brand').length && !brands.includes(brand)) dash.setParams({ brand: null });
+    // filter chips under the bar, each removable
+    const chips = [];
+    const chipF = (text, clear) => { const c = el('span', 'chip-f', text); const b = el('button', '', '×'); b.type = 'button'; b.setAttribute('aria-label', 'Remove ' + text); b.addEventListener('click', clear); c.append(b); return c; };
+    if (mgr && !USER.manager) chips.push(chipF('Manager: ' + mgr, () => setScope(ALL)));
+    if (cat) chips.push(chipF('Category: ' + cat, () => setScope(mgr || ALL)));
+    if (brand) chips.push(chipF('Brand: ' + brand + ' (tables and alerts)', () => dash.setParams({ brand: null })));
+    $('#cc-chips').replaceChildren(...chips);
+    const r = kpiRow(ALL);
+    if (r) {
+      const asOf = new Date(String(r.as_of).slice(0, 10) + 'T00:00:00Z');
+      const d = d3.utcFormat('%-d %b %Y'); const m = d3.utcFormat('%b %Y');
+      const ly = new Date(Date.UTC(asOf.getUTCFullYear() - 1, asOf.getUTCMonth(), asOf.getUTCDate()));
+      $('#cc-context').textContent = m(asOf) + ' (1–' + d(asOf) + ') · month to date vs ' + d3.utcFormat('1–%-d %b %Y')(ly) + ' like-for-like · ' + r.days_elapsed + ' of ' + r.days_in_month + ' days';
+    }
+  }
+
+  // ---------- header ----------
+  function drawHeader() {
+    const s = scopeInfo(); const r = s.row;
+    const ta = $('#cc-takeaway');
+    if (!r) { ta.replaceChildren(failed('kpi') ? el('span', 'cc-muted', 'The figures did not load.') : el('span', 'dash-skeleton', '—')); return; }
+    $('#cc-asof').textContent = d3.utcFormat('%-d %b %Y')(new Date(String(r.as_of).slice(0, 10) + 'T00:00:00Z'));
+    const where = 'scope=' + encodeURIComponent(s.scope);
+    const mark = (field, text) => { const b = el('b', '', text); b.dataset.source = 'kpi'; b.dataset.field = field; b.dataset.where = where; return b; };
+    const pace = N(r.pace_pct);
+    ta.replaceChildren(
+      document.createTextNode((s.scope === ALL ? 'All categories are' : s.scope + (s.level === 'manager' ? '’s categories are' : ' is')) + ' at '),
+      mark('pace_pct', fmtPct(r.pace_pct, 0)),
+      document.createTextNode(' of target to date and heading for '),
+      mark('forecast_pct', fmtPct(r.forecast_pct, 0)),
+      document.createTextNode(' of the month' + (pace !== null && pace < 0.95 ? ', so the gap needs action. ' : '. ')),
+      mark('oos_skus', fmtInt(r.oos_skus)),
+      document.createTextNode(' item-hub lines are out of stock and '),
+      mark('at_risk_value', fmtMoney(r.at_risk_value)),
+      document.createTextNode(' of stock expires within 30 days.')
+    );
+  }
+
+  // ---------- overview ----------
+  // KPI cards in the Executive Pulse style: label, value with a status icon, labelled lines under it
+  const TONE = { ok: 'over', warn: 'warn', bad: 'short', '': 'actual' };
+  const ICON = { over: '▲', warn: '◆', short: '▼', actual: '●' };
+  const ICON_LABEL = { over: 'At or above target', warn: 'Watch', short: 'Below target', actual: '' };
+  const money = (v) => (N(v) === null ? '—' : fmtMoney(v) + ' AED');
+  function drawTiles() {
+    const box = $('#cc-tiles'); const r = scopeInfo().row;
+    if (!r) {
+      box.replaceChildren(...Array.from({ length: 8 }, () => { const k = el('div', 'kpi'); k.append(el('div', 'kpi-label', ' '), el('div', 'kpi-value dash-skeleton', failed('kpi') ? '' : '—')); return k; }));
+      if (failed('kpi')) box.replaceChildren(el('div', 'cc-fail', 'The figures did not load.'));
+      return;
+    }
+    const gm = N(r.gm_pct), fl = N(r.margin_floor), tg = N(r.target_gm_pct);
+    const gapToDate = N(r.mtd_sales) - N(r.target_to_date);
+    const cards = [
+      ['Net Sales MTD', money(r.mtd_sales), '', ['vs ' + (new Date(r.as_of).getUTCFullYear() - 1) + ': ' + fmtDelta(r.yoy_pct) + ' (' + money(r.ly_mtd_sales) + ')']],
+      ['Sales Target', money(r.month_target), '', ['To date: ' + money(r.target_to_date)]],
+      ['Achieved % to date', fmtPct(r.pace_pct), paceTone(r.pace_pct), ['vs target: ' + fmtGap(gapToDate) + ' AED']],
+      ['Month-end forecast', money(r.forecast_eom), paceTone(r.forecast_pct), [fmtPct(r.forecast_pct, 0) + ' of target · gap ' + fmtGap(r.forecast_gap)]],
+      ['Gross Margin %', fmtPct(r.gm_pct), fl !== null && gm < fl ? 'bad' : gm < tg ? 'warn' : 'ok', ['Target ' + fmtPct(r.target_gm_pct) + (fl !== null ? ' · floor ' + fmtPct(fl, 0) : ''), 'GP ' + money(r.mtd_gp)]],
+      ['Time Elapsed %', fmtPct(N(r.days_elapsed) / N(r.days_in_month)), '', [r.days_elapsed + ' of ' + r.days_in_month + ' days']],
+      ['YTD Sales', money(r.ytd_sales), paceTone(r.ytd_pct), [fmtPct(r.ytd_pct, 0) + ' of YTD target · ' + fmtDelta(r.ytd_yoy_pct) + ' vs LY']],
+      ['Stock on hand', money(r.soh_value), '', [fmtDays(r.days_cover) + ' days of cover', money(r.inbound_value) + ' on order']],
+      ['Expiring ≤ 30 days', money(r.at_risk_value), N(r.expired_value) > 0 ? 'bad' : N(r.at_risk_value) > 0 ? 'warn' : 'ok', [money(r.expired_value) + ' already expired', money(r.blocked_value) + ' blocked or in QI']],
+      ['Out of stock lines', fmtInt(r.oos_skus), N(r.oos_skus) > 0 ? 'bad' : N(r.low_skus) > 0 ? 'warn' : 'ok', [fmtInt(r.low_skus) + ' low · ' + fmtInt(r.over_skus) + ' overstock · ' + fmtInt(r.nomove_skus) + ' not selling', 'of ' + fmtInt(r.active_skus) + ' item-hub lines']],
+    ];
+    box.replaceChildren(...cards.map(([label, value, tone, lines]) => {
+      const t = TONE[tone] || 'actual';
+      const k = el('div', 'kpi kpi-' + t); const v = el('div', 'kpi-value');
+      const i = el('span', 'kpi-icon', ICON[t]); i.setAttribute('aria-hidden', 'true'); v.append(i, document.createTextNode(value));
+      if (ICON_LABEL[t]) v.title = ICON_LABEL[t];
+      k.append(el('div', 'kpi-label', label), v, ...lines.map((l) => el('div', 'kpi-sub', l)));
+      return k;
+    }));
+  }
+
+  function drawScorecard() {
+    const s = scopeInfo();
+    const tCat = $('#tbl-score'), tBr = $('#tbl-score-brand');
+    const byBrand = s.level === 'category';
+    tCat.hidden = byBrand; tBr.hidden = !byBrand;
+    $('#cc-score-title').textContent = byBrand ? s.scope + ' brands' : 'Category scorecard';
+    if (byBrand) {
+      if (failTable(tBr, 'brand')) return;
+      drawTable(tBr, rowsOf('brand').filter((r) => r.category === s.scope), [
+        { field: 'brand', label: 'Brand', cls: 'cc-name' },
+        { field: 'mtd_sales', label: 'Sales', num: true, fmt: fmtMoney },
+        { field: 'pace_pct', label: 'Pace', num: true, fmt: (v) => paceBar(v) },
+        { field: 'yoy_pct', label: 'vs LY', num: true, fmt: fmtDelta },
+        { field: 'gm_pct', label: 'GM', num: true, fmt: (v, r) => { const t = el('span', N(v) < N(r.margin_floor) ? 'cc-bad' : '', fmtPct(v)); return t; } },
+        { field: 'days_cover', label: 'Cover', num: true, fmt: (v) => fmtDays(v) + ' d' },
+        { field: 'short_lines', label: 'Short', num: true, fmt: fmtInt },
+      ], { sort: { field: 'mtd_sales', dir: -1 }, onClick: (r) => { dash.setParams({ brand: r.brand }); } });
+      return;
+    }
+    if (failTable(tCat, 'kpi')) return;
+    const cats = inScope(rowsOf('kpi').filter((r) => r.level === 'category'), 'scope');
+    drawTable(tCat, cats, [
+      { field: 'scope', label: 'Category', cls: 'cc-name' },
+      { field: 'mtd_sales', label: 'Sales', num: true, fmt: fmtMoney },
+      { field: 'pace_pct', label: 'Pace', num: true, fmt: (v) => paceBar(v) },
+      { field: 'forecast_pct', label: 'Forecast', num: true, fmt: (v) => el('span', 'cc-' + ({ ok: 'good', warn: 'warn', bad: 'bad' }[paceTone(v)] || 'muted'), fmtPct(v, 0)) },
+      { field: 'yoy_pct', label: 'vs LY', num: true, fmt: fmtDelta },
+      { field: 'gm_pct', label: 'GM', num: true, fmt: (v, r) => el('span', N(v) < N(r.margin_floor) ? 'cc-bad' : '', fmtPct(v)) },
+      { field: 'days_cover', label: 'Cover', num: true, fmt: (v) => fmtDays(v) + ' d' },
+      { field: 'at_risk_value', label: 'Expiring', num: true, fmt: fmtMoney },
+      { field: 'oos_skus', label: 'Out of stock', num: true, fmt: (v) => el('span', N(v) > 0 ? 'cc-bad' : 'cc-muted', fmtInt(v)) },
+    ], { sort: { field: 'pace_pct', dir: 1 }, onClick: (r) => setScope(r.scope) });
+  }
+
+  const alertsInScope = () => {
+    const s = scopeInfo(); const rows = rowsOf('alerts'); const brand = params().brand;
+    let out = s.level === 'total' ? rows : s.level === 'manager' ? rows.filter((r) => r.manager === s.scope) : rows.filter((r) => r.category === s.scope);
+    if (brand) { const items = new Set(rowsOf('sku').filter((r) => r.brand === brand).map((r) => r.description)); out = out.filter((r) => items.has(r.subject) || r.subject === brand); }
+    return out;
+  };
+  const alertCols = (full) => [
+    { field: 'severity_label', label: 'Severity', fmt: (v) => chip(v, SEV_TONE[v]), sort: (r) => r.severity },
+    { field: 'alert_type', label: 'Alert' },
+    { field: 'subject', label: 'Item or account', cls: 'cc-name cc-wrap' },
+    ...(full ? [{ field: 'hub', label: 'Hub' }, { field: 'detail', label: 'Detail', cls: 'cc-wrap cc-muted' }] : []),
+    { field: 'value_at_stake', label: 'At stake', num: true, fmt: fmtMoney },
+    ...(full ? [{ field: 'action', label: 'Next step', cls: 'cc-wrap' }, { field: 'assistant', label: 'Owner' }] : [{ field: 'action', label: 'Next step', cls: 'cc-wrap cc-muted' }]),
+  ];
+  function drawTopAlerts() {
+    const t = $('#tbl-topalerts'); if (failTable(t, 'alerts')) return;
+    drawTable(t, alertsInScope(), alertCols(false), { sort: { field: 'severity_label', dir: 1 }, limit: 10, empty: 'No alerts for this view.' });
+  }
+
+  // ---------- charts ----------
+  const tipFor = (box) => { let t = box.querySelector('.cc-tip'); if (!t) { t = el('div', 'cc-tip'); t.hidden = true; box.append(t); } return t; };
+  const placeTip = (box, tip, x, y) => {
+    tip.hidden = false; const bw = box.clientWidth; const tw = tip.offsetWidth; const th = tip.offsetHeight;
+    let left = x + 12; if (left + tw > bw) left = x - tw - 12; if (left < 0) left = 0;
+    let top = y - th - 8; if (top < 0) top = y + 12;
+    tip.style.left = left + 'px'; tip.style.top = top + 'px';
+  };
+  const tipRows = (tip, head, rows) => {
+    const h = el('div', 'cc-tip-h', head); const out = [h];
+    rows.forEach(([color, name, val, dashed]) => { const r = el('div', 'cc-tip-r'); const sw = el('i', 'cc-sw' + (dashed ? ' cc-sw-dash' : '')); sw.style.borderColor = color; r.append(sw, el('span', '', name + ' ' + val)); out.push(r); });
+    tip.replaceChildren(...out);
+  };
+  const measure = (svg, texts) => { const t = svg.append('text').attr('visibility', 'hidden'); let w = 0; texts.forEach((s) => { t.text(s); w = Math.max(w, t.node().getComputedTextLength()); }); t.remove(); return w; };
+  const chartFail = (box, id) => { if (failed(id)) { box.replaceChildren(el('div', 'cc-fail', 'Failed to load')); return true; } return false; };
+
+  function drawCum() {
+    const box = $('#ch-cum'); if (chartFail(box, 'daily')) return;
+    const s = scopeInfo();
+    const data = rowsOf('daily').filter((r) => r.scope === s.scope).map((r) => ({ d: new Date(r.day + 'T00:00:00Z'), a: N(r.cum_sales), t: N(r.cum_target), ly: N(r.cum_ly) }));
+    box.querySelectorAll('svg').forEach((n) => n.remove());
+    if (!data.length) return;
+    const W = box.clientWidth || 400, H = 240;
+    const svg = d3.select(box).append('svg').attr('width', '100%').attr('viewBox', `0 0 ${W} ${H}`).attr('height', H);
+    const ymax = d3.max(data, (r) => Math.max(r.a || 0, r.t || 0, r.ly || 0)) * 1.06;
+    const y = d3.scaleLinear([0, ymax], [H - 24, 10]).nice();
+    const ticks = y.ticks(4);
+    const ml = measure(svg, ticks.map((v) => compact.format(v))) + 10;
+    const lastA = data.filter((r) => r.a !== null).pop();
+    const mr = measure(svg, [lastA ? compact.format(lastA.a) : '']) + 14;
+    const x = d3.scaleUtc(d3.extent(data, (r) => r.d), [ml, W - mr]);
+    svg.append('g').selectAll('line').data(ticks).join('line').attr('x1', ml).attr('x2', W - mr).attr('y1', (v) => y(v)).attr('y2', (v) => y(v)).attr('stroke', 'var(--cds-chart-grid)');
+    svg.append('g').selectAll('text').data(ticks).join('text').attr('x', ml - 8).attr('y', (v) => y(v)).attr('dy', '0.32em').attr('text-anchor', 'end').text((v) => compact.format(v));
+    const xt = x.ticks(Math.max(2, Math.min(6, Math.floor(W / 90))));
+    svg.append('g').selectAll('text').data(xt).join('text').attr('x', (v) => x(v)).attr('y', H - 6).attr('text-anchor', 'middle').text(d3.utcFormat('%-d %b'));
+    svg.append('line').attr('x1', ml).attr('x2', W - mr).attr('y1', y(0)).attr('y2', y(0)).attr('stroke', 'var(--cds-chart-axis)');
+    const line = (k) => d3.line().defined((r) => r[k] !== null).x((r) => x(r.d)).y((r) => y(r[k]));
+    const gid = 'cc-grad-cum';
+    const grad = svg.append('defs').append('linearGradient').attr('id', gid).attr('x1', 0).attr('x2', 0).attr('y1', 0).attr('y2', 1);
+    [[0, .26], [.25, .16], [.5, .08], [.75, .03], [1, 0]].forEach(([o, op]) => grad.append('stop').attr('offset', o).attr('style', `stop-color:${dash.colors[0]};stop-opacity:${op}`));
+    svg.append('path').datum(data.filter((r) => r.a !== null)).attr('fill', `url(#${gid})`).attr('d', d3.area().x((r) => x(r.d)).y0(y(0)).y1((r) => y(r.a)));
+    svg.append('path').datum(data).attr('fill', 'none').attr('stroke', 'var(--cds-chart-muted)').attr('stroke-width', 2).attr('stroke-linejoin', 'round').attr('stroke-linecap', 'round').attr('d', line('ly'));
+    svg.append('path').datum(data).attr('fill', 'none').attr('stroke', 'var(--cds-chart-reference)').attr('stroke-width', 1.5).attr('stroke-dasharray', '4 4').attr('d', line('t'));
+    svg.append('path').datum(data).attr('fill', 'none').attr('stroke', dash.colors[0]).attr('stroke-width', 2).attr('stroke-linejoin', 'round').attr('stroke-linecap', 'round').attr('d', line('a'));
+    if (lastA) {
+      svg.append('circle').attr('cx', x(lastA.d)).attr('cy', y(lastA.a)).attr('r', 4).attr('fill', dash.colors[0]).attr('stroke', 'var(--color-panel)').attr('stroke-width', 2);
+      svg.append('text').attr('x', x(lastA.d) + 8).attr('y', y(lastA.a)).attr('dy', '0.32em').attr('style', 'fill: var(--color-fg)').text(compact.format(lastA.a));
+    }
+    const hover = svg.append('g').attr('pointer-events', 'none');
+    const rule = hover.append('line').attr('stroke', 'var(--cds-chart-axis)').attr('y1', 10).attr('y2', H - 24).attr('opacity', 0);
+    const dot = hover.append('circle').attr('r', 4).attr('fill', dash.colors[0]).attr('stroke', 'var(--color-panel)').attr('stroke-width', 2).attr('opacity', 0);
+    const tip = tipFor(box);
+    const bis = d3.bisector((r) => r.d).center;
+    svg.append('rect').attr('x', ml).attr('y', 0).attr('width', Math.max(0, W - mr - ml)).attr('height', H).attr('fill', 'transparent')
+      .on('pointermove', (ev) => {
+        const [px] = d3.pointer(ev); const r = data[bis(data, x.invert(px))]; if (!r) return;
+        rule.attr('x1', x(r.d)).attr('x2', x(r.d)).attr('opacity', 1);
+        if (r.a !== null) dot.attr('cx', x(r.d)).attr('cy', y(r.a)).attr('opacity', 1); else dot.attr('opacity', 0);
+        tipRows(tip, d3.utcFormat('%-d %b')(r.d), [[dash.colors[0], 'Actual', r.a === null ? '—' : compact.format(r.a)], ['var(--cds-chart-reference)', 'Target', compact.format(r.t), true], ['var(--cds-chart-muted)', 'Last year', compact.format(r.ly)]]);
+        const scale = box.clientWidth / W; placeTip(box, tip, x(r.d) * scale, (r.a !== null ? y(r.a) : y(r.t)) * scale);
+      })
+      .on('pointerleave', () => { rule.attr('opacity', 0); dot.attr('opacity', 0); tip.hidden = true; });
+    $('#lg-actual').style.borderColor = dash.colors[0];
+  }
+
+  function drawMonthly() {
+    const box = $('#ch-monthly'); if (chartFail(box, 'monthly')) return;
+    const s = scopeInfo();
+    const data = rowsOf('monthly').filter((r) => r.scope === s.scope).map((r) => ({ m: r.month, s: N(r.sales), t: N(r.target), ly: N(r.ly_sales) }));
+    box.querySelectorAll('svg').forEach((n) => n.remove());
+    if (!data.length) return;
+    const W = box.clientWidth || 400, H = 240;
+    const svg = d3.select(box).append('svg').attr('width', '100%').attr('viewBox', `0 0 ${W} ${H}`).attr('height', H);
+    const ymax = d3.max(data, (r) => Math.max(r.s || 0, r.t || 0, r.ly || 0)) * 1.06;
+    const y = d3.scaleLinear([0, ymax], [H - 24, 10]).nice();
+    const ticks = y.ticks(4);
+    const ml = measure(svg, ticks.map((v) => compact.format(v))) + 10;
+    const x = d3.scaleBand(data.map((r) => r.m), [ml, W - 4]).padding(0.3);
+    const mon = (m) => d3.utcFormat('%b')(new Date(m + '-01T00:00:00Z'));
+    svg.append('g').selectAll('line').data(ticks).join('line').attr('x1', ml).attr('x2', W - 4).attr('y1', (v) => y(v)).attr('y2', (v) => y(v)).attr('stroke', 'var(--cds-chart-grid)');
+    svg.append('g').selectAll('text').data(ticks).join('text').attr('x', ml - 8).attr('y', (v) => y(v)).attr('dy', '0.32em').attr('text-anchor', 'end').text((v) => compact.format(v));
+    const every = x.bandwidth() < 22 ? 2 : 1;
+    svg.append('g').selectAll('text').data(data.filter((r, i) => i % every === 0)).join('text').attr('x', (r) => x(r.m) + x.bandwidth() / 2).attr('y', H - 6).attr('text-anchor', 'middle').text((r) => mon(r.m));
+    const bw = Math.min(32, x.bandwidth());
+    const bx = (r) => x(r.m) + (x.bandwidth() - bw) / 2;
+    svg.append('g').selectAll('path').data(data.filter((r) => r.s !== null && r.s > 0)).join('path').attr('fill', dash.colors[0])
+      .attr('d', (r) => { const x0 = bx(r), y0 = y(r.s), h = y(0) - y0, rr = Math.min(4, bw / 2, h); return `M${x0},${y(0)}V${y0 + rr}Q${x0},${y0} ${x0 + rr},${y0}H${x0 + bw - rr}Q${x0 + bw},${y0} ${x0 + bw},${y0 + rr}V${y(0)}Z`; });
+    svg.append('g').selectAll('line').data(data.filter((r) => r.t !== null)).join('line').attr('x1', (r) => bx(r) - 4).attr('x2', (r) => bx(r) + bw + 4).attr('y1', (r) => y(r.t)).attr('y2', (r) => y(r.t)).attr('stroke', 'var(--cds-chart-reference)').attr('stroke-width', 2);
+    svg.append('g').selectAll('circle').data(data.filter((r) => r.ly !== null)).join('circle').attr('cx', (r) => x(r.m) + x.bandwidth() / 2).attr('cy', (r) => y(r.ly)).attr('r', 3.5).attr('fill', 'var(--cds-chart-muted)').attr('stroke', 'var(--color-panel)').attr('stroke-width', 2);
+    svg.append('line').attr('x1', ml).attr('x2', W - 4).attr('y1', y(0)).attr('y2', y(0)).attr('stroke', 'var(--cds-chart-axis)');
+    const tip = tipFor(box);
+    svg.append('g').selectAll('rect').data(data).join('rect').attr('x', (r) => x(r.m) - (x.step() - x.bandwidth()) / 2).attr('width', x.step()).attr('y', 0).attr('height', H).attr('fill', 'transparent')
+      .on('pointermove', (ev, r) => {
+        tipRows(tip, d3.utcFormat('%B %Y')(new Date(r.m + '-01T00:00:00Z')), [[dash.colors[0], 'Sales', r.s === null ? '—' : compact.format(r.s)], ['var(--cds-chart-reference)', 'Target', r.t === null ? '—' : compact.format(r.t)], ['var(--cds-chart-muted)', 'Last year', r.ly === null ? '—' : compact.format(r.ly)]]);
+        const [px, py] = d3.pointer(ev, box); placeTip(box, tip, px, py);
+      })
+      .on('pointerleave', () => { tip.hidden = true; });
+    $('#lg-bar').style.background = dash.colors[0];
+  }
+
+  function drawAgingChart(boxId, basis, hot) {
+    const box = $(boxId); if (chartFail(box, 'aging')) return;
+    const s = scopeInfo();
+    const data = rowsOf('aging').filter((r) => r.scope === s.scope && r.basis === basis).map((r) => ({ b: r.bucket, o: N(r.bucket_order), v: N(r.value) })).sort((a, b) => a.o - b.o);
+    box.querySelectorAll('svg').forEach((n) => n.remove());
+    if (!data.length) return;
+    const W = box.clientWidth || 400, rowH = 30, H = data.length * rowH + 8;
+    box.style.minHeight = H + 'px';
+    const svg = d3.select(box).append('svg').attr('width', '100%').attr('viewBox', `0 0 ${W} ${H}`).attr('height', H);
+    const ml = measure(svg, data.map((r) => r.b)) + 12;
+    const mr = measure(svg, data.map((r) => compact.format(r.v))) + 12;
+    const x = d3.scaleLinear([0, d3.max(data, (r) => r.v) || 1], [ml, W - mr]);
+    const y = d3.scaleBand(data.map((r) => r.b), [4, H - 4]).padding(0.28);
+    const color = (r) => (r.b === 'Expired' ? 'var(--cds-chart-status-critical)' : hot.includes(r.b) ? dash.colors[0] : 'var(--cds-chart-muted)');
+    svg.append('g').selectAll('text').data(data).join('text').attr('x', ml - 8).attr('y', (r) => y(r.b) + y.bandwidth() / 2).attr('dy', '0.32em').attr('text-anchor', 'end').text((r) => r.b);
+    svg.append('g').selectAll('rect').data(data).join('rect').attr('x', ml).attr('y', (r) => y(r.b)).attr('height', y.bandwidth()).attr('width', (r) => Math.max(0, x(r.v) - ml)).attr('rx', 4).attr('fill', color);
+    svg.append('g').selectAll('text.v').data(data).join('text').attr('class', 'v').attr('x', (r) => x(r.v) + 6).attr('y', (r) => y(r.b) + y.bandwidth() / 2).attr('dy', '0.32em').attr('style', 'fill: var(--color-fg)').text((r) => compact.format(r.v));
+    svg.append('line').attr('x1', ml).attr('x2', ml).attr('y1', 0).attr('y2', H).attr('stroke', 'var(--cds-chart-axis)');
+  }
+
+  // ---------- sales tab ----------
+  function drawBrands() {
+    const t = $('#tbl-brands'); if (failTable(t, 'brand')) return;
+    const brand = params().brand;
+    const rows = inScope(rowsOf('brand')).filter((r) => !brand || r.brand === brand);
+    drawTable(t, rows, [
+      { field: 'brand', label: 'Brand', cls: 'cc-name' },
+      { field: 'category', label: 'Category', cls: 'cc-muted' },
+      { field: 'origin', label: 'Origin', cls: 'cc-muted' },
+      { field: 'mtd_sales', label: 'Sales', num: true, fmt: fmtMoney },
+      { field: 'month_target', label: 'Month target', num: true, fmt: fmtMoney },
+      { field: 'pace_pct', label: 'Pace', num: true, fmt: (v) => paceBar(v) },
+      { field: 'forecast_gap', label: 'Forecast gap', num: true, fmt: (v) => el('span', N(v) < 0 ? 'cc-bad' : 'cc-good', fmtGap(v)) },
+      { field: 'yoy_pct', label: 'vs LY', num: true, fmt: fmtDelta },
+      { field: 'gm_pct', label: 'GM', num: true, fmt: (v, r) => el('span', N(v) < N(r.margin_floor) ? 'cc-bad' : '', fmtPct(v)) },
+      { field: 'days_cover', label: 'Cover', num: true, fmt: (v) => fmtDays(v) + ' d' },
+      { field: 'at_risk_value', label: 'Expiry risk', num: true, fmt: fmtMoney },
+      { field: 'short_lines', label: 'Short lines', num: true, fmt: (v) => el('span', N(v) > 0 ? 'cc-warn' : 'cc-muted', fmtInt(v)) },
+    ], { sort: { field: 'forecast_gap', dir: 1 }, onClick: (r) => { dash.setParams({ brand: r.brand }); } });
+  }
+  function drawSegments() {
+    const t = $('#tbl-segments'); if (failTable(t, 'channel')) return;
+    const s = scopeInfo();
+    drawTable(t, rowsOf('channel').filter((r) => r.scope === s.scope), [
+      { field: 'segment', label: 'Segment', cls: 'cc-name' },
+      { field: 'mtd_sales', label: 'Sales', num: true, fmt: fmtMoney },
+      { field: 'ly_mtd_sales', label: 'Last year', num: true, fmt: fmtMoney },
+      { field: 'yoy_pct', label: 'vs LY', num: true, fmt: (v) => el('span', N(v) < -0.05 ? 'cc-bad' : N(v) > 0.05 ? 'cc-good' : '', fmtDelta(v)) },
+      { field: 'gm_pct', label: 'GM', num: true, fmt: fmtPct },
+    ], { sort: { field: 'mtd_sales', dir: -1 } });
+  }
+
+  // ---------- stock tab ----------
+  const STATUSES = ['All', 'Out of stock', 'Low cover', 'Overstock', 'No sales 28d', 'Healthy'];
+  const STATUS_COUNT = { 'Out of stock': 'oos_skus', 'Low cover': 'low_skus', 'Overstock': 'over_skus', 'No sales 28d': 'nomove_skus' };
+  function drawStatusFilters() {
+    const box = $('#cc-status-filters'); const s = scopeInfo(); const r = s.row; const brand = params().brand;
+    box.replaceChildren(...STATUSES.map((st) => {
+      const b = el('button', 'cc-pill'); b.type = 'button'; b.setAttribute('aria-pressed', String(local.status === st));
+      b.append(document.createTextNode(st));
+      if (STATUS_COUNT[st] && r && !brand) { const c = el('b', '', fmtInt(r[STATUS_COUNT[st]])); c.dataset.source = 'kpi'; c.dataset.field = STATUS_COUNT[st]; c.dataset.where = 'scope=' + encodeURIComponent(s.scope); b.append(c); }
+      b.addEventListener('click', () => { local.status = st; redraw(); });
+      return b;
+    }));
+  }
+  const skuSearch = $('#cc-sku-search');
+  skuSearch.addEventListener('input', () => { local.search = skuSearch.value.trim().toLowerCase(); drawSku(); });
+  function drawSku() {
+    const t = $('#tbl-sku'); if (failTable(t, 'sku')) return;
+    const brand = params().brand;
+    let rows = inScope(rowsOf('sku'));
+    if (brand) rows = rows.filter((r) => r.brand === brand);
+    if (local.status !== 'All') rows = rows.filter((r) => r.status === local.status);
+    if (local.search) rows = rows.filter((r) => (r.description + ' ' + r.brand + ' ' + r.hub).toLowerCase().includes(local.search));
+    $('#cc-sku-count').textContent = rows.length + ' item-hub lines';
+    drawTable(t, rows, [
+      { field: 'description', label: 'Item', cls: 'cc-name cc-wrap' },
+      { field: 'hub', label: 'Hub' },
+      { field: 'status', label: 'Status', fmt: (v) => chip(v, STATUS_TONE[v]) },
+      { field: 'days_cover', label: 'Days of cover', num: true, fmt: (v, r) => coverBar(r), sort: (r) => r.days_cover },
+      { field: 'cover_incl_inbound', label: 'With POs', num: true, fmt: (v) => (N(v) === null ? '—' : fmtDays(v) + ' d') },
+      { field: 'avg_daily_qty', label: 'Sold / day', num: true, fmt: (v, r) => (N(v) === null ? '—' : d3.format(',.1f')(N(v)) + ' ' + String(r.uom).toLowerCase()) },
+      { field: 'soh_value', label: 'Stock value', num: true, fmt: fmtMoney },
+      { field: 'next_eta', label: 'Next PO', fmt: (v) => fmtDate(v) },
+      { field: 'action', label: 'Suggested action', cls: 'cc-wrap' },
+    ], { sort: { field: 'days_cover', dir: 1 } });
+  }
+
+  // ---------- aging tab ----------
+  function drawExpiry() {
+    const t = $('#tbl-expiry'); if (failTable(t, 'sku')) return;
+    const brand = params().brand;
+    const rows = inScope(rowsOf('sku')).filter((r) => (N(r.at_risk_value) > 0 || N(r.expired_value) > 0) && (!brand || r.brand === brand));
+    drawTable(t, rows, [
+      { field: 'description', label: 'Item', cls: 'cc-name cc-wrap' },
+      { field: 'hub', label: 'Hub' },
+      { field: 'expired_value', label: 'Expired', num: true, fmt: (v) => el('span', N(v) > 0 ? 'cc-bad' : 'cc-muted', fmtMoney(v)) },
+      { field: 'at_risk_value', label: 'Expiring ≤30 d', num: true, fmt: (v) => el('span', N(v) > 0 ? 'cc-warn' : 'cc-muted', fmtMoney(v)) },
+      { field: 'days_to_expiry', label: 'Next expiry', num: true, fmt: (v) => (N(v) === null ? '—' : fmtDays(v) + ' d') },
+      { field: 'days_cover', label: 'Cover', num: true, fmt: (v) => (N(v) === null ? '—' : fmtDays(v) + ' d') },
+      { field: 'status', label: 'Status', fmt: (v) => chip(v, STATUS_TONE[v]) },
+      { field: 'action', label: 'Suggested action', cls: 'cc-wrap' },
+    ], { sort: { field: 'at_risk_value', dir: -1 } });
+  }
+
+  // ---------- customers tab ----------
+  function drawCustomers() {
+    const t = $('#tbl-cust'); if (failTable(t, 'customers')) return;
+    const s = scopeInfo();
+    drawTable(t, rowsOf('customers').filter((r) => r.scope === s.scope), [
+      { field: 'customer', label: 'Customer', cls: 'cc-name' },
+      { field: 'segment', label: 'Segment', cls: 'cc-muted' },
+      { field: 'salesperson', label: 'Salesperson', cls: 'cc-muted' },
+      { field: 'mtd_sales', label: 'This month', num: true, fmt: fmtMoney },
+      { field: 'expected_to_date', label: 'Expected', num: true, fmt: fmtMoney },
+      { field: 'vs_expected', label: 'Gap', num: true, fmt: (v) => el('span', N(v) < 0 ? 'cc-bad' : 'cc-good', fmtGap(v)) },
+      { field: 'run_rate_pct', label: 'Pace', num: true, fmt: (v) => paceBar(v) },
+      { field: 'trend', label: 'Trend', fmt: (v) => chip(v, TREND_TONE[v]) },
+    ], { sort: { field: 'vs_expected', dir: 1 } });
+  }
+  function drawLeak() {
+    const t = $('#tbl-leak'); if (failTable(t, 'leak')) return;
+    drawTable(t, inScope(rowsOf('leak')), [
+      { field: 'customer', label: 'Customer', cls: 'cc-name' },
+      { field: 'item', label: 'Item', cls: 'cc-wrap' },
+      { field: 'salesperson', label: 'Salesperson', cls: 'cc-muted' },
+      { field: 'net_sales', label: 'Sales', num: true, fmt: fmtMoney },
+      { field: 'gm_pct', label: 'GM', num: true, fmt: (v) => el('span', 'cc-bad', fmtPct(v)) },
+      { field: 'margin_floor', label: 'Floor', num: true, fmt: (v) => fmtPct(v, 0) },
+      { field: 'gp_gap', label: 'Gap', num: true, fmt: fmtMoney },
+      { field: 'order_types', label: 'Order type', cls: 'cc-muted' },
+    ], { sort: { field: 'gp_gap', dir: -1 } });
+  }
+
+  // ---------- alerts tab ----------
+  const typeSel = $('#cc-type');
+  typeSel.addEventListener('change', () => { local.type = typeSel.value; drawAlerts(); });
+  function drawAlerts() {
+    const t = $('#tbl-alerts'); if (failTable(t, 'alerts')) return;
+    const scoped = alertsInScope();
+    const types = Array.from(new Set(rowsOf('alerts').map((r) => r.alert_type))).sort();
+    typeSel.replaceChildren(new Option('All types', ''), ...types.map((x) => new Option(x, x)));
+    typeSel.value = local.type;
+    const sevBox = $('#cc-sev-filters');
+    sevBox.replaceChildren(...['All', 'Critical', 'High', 'Medium'].map((sv) => {
+      const b = el('button', 'cc-pill', sv); b.type = 'button'; b.setAttribute('aria-pressed', String(local.sev === sv));
+      b.addEventListener('click', () => { local.sev = sv; drawAlerts(); }); return b;
+    }));
+    const rows = scoped.filter((r) => (local.sev === 'All' || r.severity_label === local.sev) && (!local.type || r.alert_type === local.type));
+    drawTable(t, rows, alertCols(true), { sort: { field: 'severity_label', dir: 1 }, empty: 'No alerts match these filters.' });
+  }
+
+  // ---------- pages: sidebar links ----------
+  const PAGES = ['overview', 'sales', 'stock', 'aging', 'customers', 'alerts'];
+  const TITLES = { overview: 'Category Overview', sales: 'Sales vs Target', stock: 'Stock & Cover', aging: 'Aging & Expiry', customers: 'Customers & Margin', alerts: 'Alerts' };
+  function showPage(p) {
+    if (!PAGES.includes(p)) p = 'overview';
+    local.page = p;
+    PAGES.forEach((id) => { $('#' + id).hidden = id !== p; });
+    document.querySelectorAll('.nav-link[data-page]').forEach((a) => { if (a.dataset.page === p) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current'); });
+    $('#cc-page-title').textContent = TITLES[p];
+    document.title = TITLES[p] + ' · Category Pulse';
+    dash.setLink(p);
+    redraw();
+    window.scrollTo(0, 0);
+  }
+  document.querySelectorAll('.nav-link[data-page]').forEach((a) => a.addEventListener('click', (e) => { e.preventDefault(); showPage(a.dataset.page); }));
+  document.querySelectorAll('[data-goto]').forEach((b) => b.addEventListener('click', () => showPage(b.dataset.goto)));
+
+  // theme and print
+  const setTheme = (t) => {
+    document.documentElement.dataset.theme = t;
+    try { localStorage.setItem('cp-theme', t); } catch (e) {}
+    document.querySelectorAll('[data-theme-set]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.themeSet === t)));
+    dash.notify();
+  };
+  document.querySelectorAll('[data-theme-set]').forEach((b) => b.addEventListener('click', () => setTheme(b.dataset.themeSet)));
+  setTheme(document.documentElement.dataset.theme === 'dark' ? 'dark' : 'light');
+  $('#cc-print').addEventListener('click', () => window.print());
+  $('#nav-user').textContent = USER.name; $('#nav-role').textContent = USER.role;
+
+  function redraw() {
+    drawScope(); drawHeader();
+    const n = alertsInScope().filter((r) => r.severity_label === 'Critical').length;
+    const nc = $('#nav-alerts'); nc.hidden = !n; nc.textContent = n; nc.title = n + ' critical alerts';
+    const p = local.page;
+    if (p === 'overview') { drawTiles(); drawScorecard(); drawTopAlerts(); }
+    if (p === 'sales') { drawCum(); drawMonthly(); drawBrands(); drawSegments(); }
+    if (p === 'stock') { drawStatusFilters(); drawSku(); }
+    if (p === 'aging') { drawAgingChart('#ch-life', 'Shelf life left', ['0-30 days']); drawAgingChart('#ch-age', 'Days in stock', ['91-180 days', 'Over 180 days']); drawExpiry(); }
+    if (p === 'customers') { drawCustomers(); drawLeak(); }
+    if (p === 'alerts') drawAlerts();
+  }
+
+  const start = (location.hash || '').slice(1);
+  showPage(PAGES.includes(start) ? start : 'overview');
+  dash.onData(redraw);
+})();
+</script>
+
+</body>
+</html>

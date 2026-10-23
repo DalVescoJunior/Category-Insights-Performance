@@ -1,0 +1,48 @@
+<div class="app" id="cc-app">
+  <aside class="sidebar">
+    <div class="logo">
+      <img class="logo-light" src="/brand/aramtec-logo.png" alt="Aramtec" width="150" height="95">
+      <img class="logo-dark" src="/brand/aramtec-logo-white.png" alt="Aramtec" width="150" height="95">
+    </div>
+    <a class="nav-link" href="#overview" data-page="overview">Category Overview</a>
+    <a class="nav-link" href="#sales" data-page="sales">Sales vs Target</a>
+    <a class="nav-link" href="#stock" data-page="stock">Stock &amp; Cover</a>
+    <a class="nav-link" href="#aging" data-page="aging">Aging &amp; Expiry</a>
+    <a class="nav-link" href="#customers" data-page="customers">Customers &amp; Margin</a>
+    <a class="nav-link" href="#alerts" data-page="alerts">Alerts <span class="nav-count" id="nav-alerts" hidden></span></a>
+    <div class="nav-section">Account</div>
+    <div class="nav-user" id="nav-user"></div>
+    <div class="nav-role" id="nav-role"></div>
+    <a class="nav-link" href="/logout">Sign out</a>
+  </aside>
+
+  <main class="main">
+    <div class="topbar">
+      <h1 id="cc-page-title">Category Overview</h1>
+      <span class="badge badge-demo">⚠ Demo data (synthetic)</span>
+      <span class="asof">Data as of: <span id="cc-asof">—</span></span>
+      <button type="button" class="btn" id="cc-print">Print or PDF</button>
+      <span class="seg" role="group" aria-label="Theme">
+        <button type="button" class="btn" data-theme-set="light">☀ Light</button>
+        <button type="button" class="btn" data-theme-set="dark">☾ Dark</button>
+      </span>
+    </div>
+
+    <div class="filterbar" role="search" aria-label="Filters">
+      <label class="field">Category manager
+        <select id="f-manager"></select>
+      </label>
+      <label class="field">Category
+        <select id="f-category"></select>
+      </label>
+      <label class="field">Brand
+        <select id="f-brand"></select>
+      </label>
+      <span class="spacer"></span>
+      <button type="button" class="btn" id="f-clear">Clear all</button>
+    </div>
+    <p class="context-line" id="cc-context">—</p>
+    <div class="chips" id="cc-chips"></div>
+
+<div class="cc" id="cc">
+  <p class="cc-takeaway" id="cc-takeaway"><span class="dash-skeleton">—</span></p>
