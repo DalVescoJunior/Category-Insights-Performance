@@ -22,7 +22,7 @@
       ['YTD Sales', money(r.ytd_sales), paceTone(r.ytd_pct), [fmtPct(r.ytd_pct, 0) + ' of YTD target · ' + fmtDelta(r.ytd_yoy_pct) + ' vs LY']],
       ['Stock on hand', money(r.soh_value), '', [fmtDays(r.days_cover) + ' days of cover', money(r.inbound_value) + ' on order']],
       ['Expiring ≤ 30 days', money(r.at_risk_value), N(r.expired_value) > 0 ? 'bad' : N(r.at_risk_value) > 0 ? 'warn' : 'ok', [money(r.expired_value) + ' already expired', money(r.blocked_value) + ' blocked or in QI']],
-      ['Out of stock lines', fmtInt(r.oos_skus), N(r.oos_skus) > 0 ? 'bad' : N(r.low_skus) > 0 ? 'warn' : 'ok', [fmtInt(r.low_skus) + ' low · ' + fmtInt(r.over_skus) + ' overstock · ' + fmtInt(r.nomove_skus) + ' not selling', 'of ' + fmtInt(r.active_skus) + ' item-hub lines']],
+      ['Out of stock lines', fmtInt(r.oos_skus), N(r.oos_skus) > 0 ? 'bad' : N(r.low_skus) > 0 ? 'warn' : 'ok', [fmtInt(r.low_skus) + ' low · ' + fmtInt(r.over_skus) + ' overstock · ' + fmtInt(r.nomove_skus) + ' not selling', 'of ' + fmtInt(r.active_skus) + ' item lines']],
     ];
     box.replaceChildren(...cards.map(([label, value, tone, lines]) => {
       const t = TONE[tone] || 'actual';

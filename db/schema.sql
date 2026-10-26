@@ -27,7 +27,7 @@ create table item (
   list_price numeric not null,
   weight numeric not null
 );
-create table org (org_code text primary key, name text not null, weight numeric not null);
+create table org (org_code text primary key, name text not null, weight numeric not null, country text not null);  -- country: ISO 3166 alpha-3 code
 create table salesperson (sp_id smallint primary key, name text not null, org_code text references org, division text not null);
 create table customer (
   customer_code int primary key,

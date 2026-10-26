@@ -277,6 +277,9 @@ try { const t = localStorage.getItem('cp-theme'); if (t === 'dark' || t === 'lig
       <label class="field">Brand
         <select id="f-brand"></select>
       </label>
+      <label class="field">Country
+        <select id="f-country"></select>
+      </label>
       <span class="spacer"></span>
       <button type="button" class="btn" id="f-clear">Clear all</button>
     </div>
@@ -335,7 +338,7 @@ try { const t = localStorage.getItem('cp-theme'); if (t === 'dark' || t === 'lig
       <div class="cc-card cc-card-wide" id="card-segments">
         <div class="cc-card-head"><h2>Customer segments</h2><span class="cc-note">Month to date against the same days last year</span></div>
         <div class="cc-scroll cc-short">
-          <table class="cc-table" id="tbl-segments" data-source="channel" data-row-key="scope,segment"></table>
+          <table class="cc-table" id="tbl-segments" data-source="channel" data-row-key="scope,country,segment"></table>
         </div>
       </div>
     </div>
@@ -343,14 +346,14 @@ try { const t = localStorage.getItem('cp-theme'); if (t === 'dark' || t === 'lig
 
   <section class="cc-page" id="stock" hidden>
     <div class="cc-card" id="card-sku">
-      <div class="cc-card-head"><h2>Items by hub</h2><span class="cc-note">Cover = available in-date stock ÷ average daily units sold over 28 days. Green band = the category's target range.</span></div>
+      <div class="cc-card-head"><h2>Items by country</h2><span class="cc-note">Cover = available in-date stock ÷ average daily units sold over 28 days. Green band = the category's target range.</span></div>
       <div class="cc-filters" id="cc-status-filters"></div>
       <div class="cc-filters">
-        <input type="search" id="cc-sku-search" class="cc-search" placeholder="Search item, brand or hub" aria-label="Search items">
+        <input type="search" id="cc-sku-search" class="cc-search" placeholder="Search item, brand or country" aria-label="Search items">
         <span class="cc-note" id="cc-sku-count"></span>
       </div>
       <div class="cc-scroll">
-        <table class="cc-table" id="tbl-sku" data-source="sku" data-row-key="item_code,hub"></table>
+        <table class="cc-table" id="tbl-sku" data-source="sku" data-row-key="item_code,country"></table>
       </div>
     </div>
   </section>
@@ -368,13 +371,13 @@ try { const t = localStorage.getItem('cp-theme'); if (t === 'dark' || t === 'lig
       <div class="cc-card cc-card-wide" id="card-expiring">
         <div class="cc-card-head"><h2>Expiring within 30 days</h2><span class="cc-note">Still sellable: sell, bundle or move these first</span></div>
         <div class="cc-scroll">
-          <table class="cc-table" id="tbl-expiring" data-source="sku" data-row-key="item_code,hub"></table>
+          <table class="cc-table" id="tbl-expiring" data-source="sku" data-row-key="item_code,country"></table>
         </div>
       </div>
       <div class="cc-card cc-card-wide" id="card-expired">
         <div class="cc-card-head"><h2>Expired stock</h2><span class="cc-note">Past its expiry date: block, write off or claim from the supplier</span></div>
         <div class="cc-scroll">
-          <table class="cc-table" id="tbl-expired" data-source="sku" data-row-key="item_code,hub"></table>
+          <table class="cc-table" id="tbl-expired" data-source="sku" data-row-key="item_code,country"></table>
         </div>
       </div>
     </div>
@@ -385,7 +388,7 @@ try { const t = localStorage.getItem('cp-theme'); if (t === 'dark' || t === 'lig
       <div class="cc-card cc-card-wide" id="card-cust">
         <div class="cc-card-head"><h2>Top customers against their usual pace</h2><span class="cc-note">Expected = average of the last three months, pro-rated to today</span></div>
         <div class="cc-scroll">
-          <table class="cc-table" id="tbl-cust" data-source="customers" data-row-key="scope,customer"></table>
+          <table class="cc-table" id="tbl-cust" data-source="customers" data-row-key="scope,country,customer"></table>
         </div>
       </div>
       <div class="cc-card cc-card-wide" id="card-leak">
@@ -414,7 +417,7 @@ try { const t = localStorage.getItem('cp-theme'); if (t === 'dark' || t === 'lig
       <ul class="cc-defs">
         <li>Pace: sales month to date ÷ the month's target phased evenly to today.</li>
         <li>Forecast: sales month to date scaled by how the same month finished last year, so it follows the season.</li>
-        <li>Days of cover: available in-date stock ÷ average units sold per day over the last 28 days, per item and hub.</li>
+        <li>Days of cover: available in-date stock ÷ average units sold per day over the last 28 days, per item and hub (each hub sits in one country).</li>
         <li>Low cover and overstock use each category's own minimum and maximum days.</li>
         <li>Expiring: available stock with 30 days or less of shelf life left.</li>
         <li>Margin floor: the lowest gross margin the category accepts; lines below it show under Customers &amp; Margin.</li>
@@ -450,8 +453,15 @@ try { const t = localStorage.getItem('cp-theme'); if (t === 'dark' || t === 'lig
 
   // ---------- state ----------
   const local = { page: 'overview', status: 'All', sev: 'All', type: '', search: '', sorts: {} };
-  const params = () => Object.assign({ scope: ALL, brand: null }, dash.params());
-  const kpiRow = (scope) => rowsOf('kpi').find((r) => r.scope === scope);
+  const params = () => Object.assign({ scope: ALL, brand: null, country: null }, dash.params());
+  // country filter: rolled-up datasets have one set of rows per country plus one for all (country null);
+  // row-level datasets (items, margin leaks) carry the row's own country
+  const byCountry = (rows) => { const c = params().country || null; return rows.filter((r) => (r.country ?? null) === c); };
+  const inCountry = (rows) => { const c = params().country; return c ? rows.filter((r) => r.country === c) : rows; };
+  const kpiRows = () => byCountry(rowsOf('kpi'));
+  const brandRows = () => byCountry(rowsOf('brand'));
+  const skuRows = () => inCountry(rowsOf('sku'));
+  const kpiRow = (scope) => kpiRows().find((r) => r.scope === scope);
   const scopeInfo = () => {
     const p = params();
     const r = kpiRow(p.scope) || kpiRow(ALL);
@@ -536,9 +546,9 @@ try { const t = localStorage.getItem('cp-theme'); if (t === 'dark' || t === 'lig
   }
   function failTable(table, id) { if (failed(id)) { const tb = el('tbody'); const tr = el('tr'); const td = el('td'); td.append(el('div', 'cc-fail', 'Failed to load')); tr.append(td); tb.append(tr); table.replaceChildren(tb); return true; } return false; }
 
-  // ---------- filters: category manager, category, brand ----------
+  // ---------- filters: category manager, category, brand, country ----------
   const USER = window.CP_USER || { name: 'Demo user', role: 'All categories', manager: null };
-  const fMgr = $('#f-manager'), fCat = $('#f-category'), fBrand = $('#f-brand');
+  const fMgr = $('#f-manager'), fCat = $('#f-category'), fBrand = $('#f-brand'), fCountry = $('#f-country');
   const pick = () => {
     const s = scopeInfo();
     const mgr = s.level === 'manager' ? s.scope : s.level === 'category' ? s.row.manager : '';
@@ -547,13 +557,14 @@ try { const t = localStorage.getItem('cp-theme'); if (t === 'dark' || t === 'lig
   fMgr.addEventListener('change', () => setScope(fMgr.value || ALL));
   fCat.addEventListener('change', () => setScope(fCat.value || fMgr.value || ALL));
   fBrand.addEventListener('change', () => dash.setParams({ brand: fBrand.value || null }));
-  $('#f-clear').addEventListener('click', () => setScope(USER.manager || ALL));
+  fCountry.addEventListener('change', () => dash.setParams({ country: fCountry.value || null }));
+  $('#f-clear').addEventListener('click', () => dash.setParams({ scope: USER.manager || ALL, brand: null, country: null }));
   if (USER.manager && params().scope === ALL) dash.setParams({ scope: USER.manager });
   const opt = (label, value) => new Option(label, value);
   function drawScope() {
-    const k = rowsOf('kpi');
-    [fMgr, fCat, fBrand].forEach((s) => { s.disabled = !k.length; });
-    if (!k.length) { [fMgr, fCat, fBrand].forEach((s) => s.replaceChildren(opt(failed('kpi') ? 'Not loaded' : 'Loading…', ''))); return; }
+    const k = kpiRows();
+    [fMgr, fCat, fBrand, fCountry].forEach((s) => { s.disabled = !k.length; });
+    if (!k.length) { [fMgr, fCat, fBrand, fCountry].forEach((s) => s.replaceChildren(opt(failed('kpi') ? 'Not loaded' : 'Loading…', ''))); return; }
     const { mgr, cat } = pick();
     const mgrs = k.filter((r) => r.level === 'manager' && (!USER.manager || r.scope === USER.manager));
     fMgr.replaceChildren(...(USER.manager ? [] : [opt('All managers', '')]), ...mgrs.map((r) => opt(r.scope, r.scope)));
@@ -561,16 +572,22 @@ try { const t = localStorage.getItem('cp-theme'); if (t === 'dark' || t === 'lig
     const cats = k.filter((r) => r.level === 'category' && (!mgr || r.manager === mgr) && (!USER.manager || r.manager === USER.manager));
     fCat.replaceChildren(opt(mgr ? 'All ' + mgr.split(' ')[0] + '’s categories' : 'All categories', ''), ...cats.map((r) => opt(r.scope, r.scope)));
     fCat.value = cat;
-    const brands = Array.from(new Set(inScope(rowsOf('brand')).map((r) => r.brand))).sort();
+    const country = params().country;
+    const countries = Array.from(new Set(rowsOf('kpi').map((r) => r.country).filter(Boolean))).sort();
+    fCountry.replaceChildren(opt('All countries', ''), ...countries.map((c) => opt(c, c)));
+    fCountry.value = countries.includes(country) ? country : '';
+    const brands = Array.from(new Set(inScope(brandRows()).map((r) => r.brand))).sort();
     const brand = params().brand;
     fBrand.replaceChildren(opt('All brands', ''), ...brands.map((b) => opt(b, b)));
     fBrand.value = brands.includes(brand) ? brand : '';
     if (brand && rowsOf('brand').length && !brands.includes(brand)) dash.setParams({ brand: null });
+    if (country && !countries.includes(country)) dash.setParams({ country: null });
     // filter chips under the bar, each removable
     const chips = [];
     const chipF = (text, clear) => { const c = el('span', 'chip-f', text); const b = el('button', '', '×'); b.type = 'button'; b.setAttribute('aria-label', 'Remove ' + text); b.addEventListener('click', clear); c.append(b); return c; };
     if (mgr && !USER.manager) chips.push(chipF('Manager: ' + mgr, () => setScope(ALL)));
     if (cat) chips.push(chipF('Category: ' + cat, () => setScope(mgr || ALL)));
+    if (country) chips.push(chipF('Country: ' + country, () => dash.setParams({ country: null })));
     if (brand) chips.push(chipF('Brand: ' + brand + ' (tables and alerts)', () => dash.setParams({ brand: null })));
     $('#cc-chips').replaceChildren(...chips);
     const r = kpiRow(ALL);
@@ -592,13 +609,13 @@ try { const t = localStorage.getItem('cp-theme'); if (t === 'dark' || t === 'lig
     const mark = (field, text) => { const b = el('b', '', text); b.dataset.source = 'kpi'; b.dataset.field = field; b.dataset.where = where; return b; };
     const pace = N(r.pace_pct);
     ta.replaceChildren(
-      document.createTextNode((s.scope === ALL ? 'All categories are' : s.scope + (s.level === 'manager' ? '’s categories are' : ' is')) + ' at '),
+      document.createTextNode((params().country ? 'In ' + params().country + ', ' : '') + (s.scope === ALL ? (params().country ? 'all categories are' : 'All categories are') : s.scope + (s.level === 'manager' ? '’s categories are' : ' is')) + ' at '),
       mark('pace_pct', fmtPct(r.pace_pct, 0)),
       document.createTextNode(' of target to date and heading for '),
       mark('forecast_pct', fmtPct(r.forecast_pct, 0)),
       document.createTextNode(' of the month' + (pace !== null && pace < 0.95 ? ', so the gap needs action. ' : '. ')),
       mark('oos_skus', fmtInt(r.oos_skus)),
-      document.createTextNode(' item-hub lines are out of stock and '),
+      document.createTextNode(' item lines are out of stock and '),
       mark('at_risk_value', fmtMoney(r.at_risk_value)),
       document.createTextNode(' of stock expires within 30 days.')
     );
@@ -629,7 +646,7 @@ try { const t = localStorage.getItem('cp-theme'); if (t === 'dark' || t === 'lig
       ['YTD Sales', money(r.ytd_sales), paceTone(r.ytd_pct), [fmtPct(r.ytd_pct, 0) + ' of YTD target · ' + fmtDelta(r.ytd_yoy_pct) + ' vs LY']],
       ['Stock on hand', money(r.soh_value), '', [fmtDays(r.days_cover) + ' days of cover', money(r.inbound_value) + ' on order']],
       ['Expiring ≤ 30 days', money(r.at_risk_value), N(r.expired_value) > 0 ? 'bad' : N(r.at_risk_value) > 0 ? 'warn' : 'ok', [money(r.expired_value) + ' already expired', money(r.blocked_value) + ' blocked or in QI']],
-      ['Out of stock lines', fmtInt(r.oos_skus), N(r.oos_skus) > 0 ? 'bad' : N(r.low_skus) > 0 ? 'warn' : 'ok', [fmtInt(r.low_skus) + ' low · ' + fmtInt(r.over_skus) + ' overstock · ' + fmtInt(r.nomove_skus) + ' not selling', 'of ' + fmtInt(r.active_skus) + ' item-hub lines']],
+      ['Out of stock lines', fmtInt(r.oos_skus), N(r.oos_skus) > 0 ? 'bad' : N(r.low_skus) > 0 ? 'warn' : 'ok', [fmtInt(r.low_skus) + ' low · ' + fmtInt(r.over_skus) + ' overstock · ' + fmtInt(r.nomove_skus) + ' not selling', 'of ' + fmtInt(r.active_skus) + ' item lines']],
     ];
     box.replaceChildren(...cards.map(([label, value, tone, lines]) => {
       const t = TONE[tone] || 'actual';
@@ -650,7 +667,7 @@ try { const t = localStorage.getItem('cp-theme'); if (t === 'dark' || t === 'lig
     $('#cc-score-toggle').hidden = byBrand; $('#cc-score-hint').textContent = byBrand ? 'Month to date · click a brand to filter' : 'Month to date · ▸ shows brands · click a row to drill in';
     if (byBrand) {
       if (failTable(tBr, 'brand')) return;
-      drawTable(tBr, rowsOf('brand').filter((r) => r.category === s.scope), [
+      drawTable(tBr, brandRows().filter((r) => r.category === s.scope), [
         { field: 'brand', label: 'Brand', cls: 'cc-name' },
         { field: 'mtd_sales', label: 'Sales', num: true, fmt: fmtMoney },
         { field: 'pace_pct', label: 'Pace', num: true, fmt: (v) => paceBar(v) },
@@ -662,7 +679,7 @@ try { const t = localStorage.getItem('cp-theme'); if (t === 'dark' || t === 'lig
       return;
     }
     if (failTable(tCat, 'kpi')) return;
-    const cats = inScope(rowsOf('kpi').filter((r) => r.level === 'category'), 'scope');
+    const cats = inScope(kpiRows().filter((r) => r.level === 'category'), 'scope');
     drawTable(tCat, cats, [
       { field: 'scope', label: 'Category', cls: 'cc-name' },
       { field: 'mtd_sales', label: 'Sales', num: true, fmt: fmtMoney },
@@ -680,7 +697,7 @@ try { const t = localStorage.getItem('cp-theme'); if (t === 'dark' || t === 'lig
   // category rows open in place to show their brands; collapsed by default
   local.open = new Set();
   function addBrandRows(table, cats) {
-    const brands = rowsOf('brand'); const sku = rowsOf('sku');
+    const brands = brandRows(); const sku = skuRows();
     const oos = {}; sku.forEach((r) => { if (r.status === 'Out of stock') oos[r.brand] = (oos[r.brand] || 0) + 1; });
     const allOpen = cats.length > 0 && cats.every((c) => local.open.has(c.scope));
     const tg = $('#cc-score-toggle'); tg.hidden = !cats.length; tg.textContent = allOpen ? 'Collapse all' : 'Expand all';
@@ -711,23 +728,25 @@ try { const t = localStorage.getItem('cp-theme'); if (t === 'dark' || t === 'lig
     });
   }
   $('#cc-score-toggle').addEventListener('click', () => {
-    const cats = inScope(rowsOf('kpi').filter((r) => r.level === 'category'), 'scope').map((r) => r.scope);
+    const cats = inScope(kpiRows().filter((r) => r.level === 'category'), 'scope').map((r) => r.scope);
     const allOpen = cats.every((c) => local.open.has(c));
     cats.forEach((c) => (allOpen ? local.open.delete(c) : local.open.add(c)));
     redraw();
   });
 
   const alertsInScope = () => {
-    const s = scopeInfo(); const rows = rowsOf('alerts'); const brand = params().brand;
+    const s = scopeInfo(); const brand = params().brand; const c = params().country;
+    // roll-up alerts exist once for all countries and once per country: keep the set that matches the filter
+    const rows = rowsOf('alerts').filter((r) => (c ? r.country === c : !r.country_rollup || r.country === null));
     let out = s.level === 'total' ? rows : s.level === 'manager' ? rows.filter((r) => r.manager === s.scope) : rows.filter((r) => r.category === s.scope);
-    if (brand) { const items = new Set(rowsOf('sku').filter((r) => r.brand === brand).map((r) => r.description)); out = out.filter((r) => items.has(r.subject) || r.subject === brand); }
+    if (brand) { const items = new Set(skuRows().filter((r) => r.brand === brand).map((r) => r.description)); out = out.filter((r) => items.has(r.subject) || r.subject === brand); }
     return out;
   };
   const alertCols = (full) => [
     { field: 'severity_label', label: 'Severity', fmt: (v) => chip(v, SEV_TONE[v]), sort: (r) => r.severity },
     { field: 'alert_type', label: 'Alert' },
     { field: 'subject', label: 'Item or account', cls: 'cc-name cc-wrap' },
-    ...(full ? [{ field: 'hub', label: 'Hub' }, { field: 'detail', label: 'Detail', cls: 'cc-wrap cc-muted' }] : []),
+    ...(full ? [{ field: 'country', label: 'Country', fmt: (v) => v || 'All' }, { field: 'detail', label: 'Detail', cls: 'cc-wrap cc-muted' }] : []),
     { field: 'value_at_stake', label: 'At stake', num: true, fmt: fmtMoney },
     ...(full ? [{ field: 'action', label: 'Next step', cls: 'cc-wrap' }, { field: 'assistant', label: 'Owner' }] : [{ field: 'action', label: 'Next step', cls: 'cc-wrap cc-muted' }]),
   ];
@@ -755,7 +774,7 @@ try { const t = localStorage.getItem('cp-theme'); if (t === 'dark' || t === 'lig
   function drawCum() {
     const box = $('#ch-cum'); if (chartFail(box, 'daily')) return;
     const s = scopeInfo();
-    const data = rowsOf('daily').filter((r) => r.scope === s.scope).map((r) => ({ d: new Date(r.day + 'T00:00:00Z'), a: N(r.cum_sales), t: N(r.cum_target), ly: N(r.cum_ly) }));
+    const data = byCountry(rowsOf('daily')).filter((r) => r.scope === s.scope).map((r) => ({ d: new Date(r.day + 'T00:00:00Z'), a: N(r.cum_sales), t: N(r.cum_target), ly: N(r.cum_ly) }));
     box.querySelectorAll('svg').forEach((n) => n.remove());
     if (!data.length) return;
     const W = box.clientWidth || 400, H = 240;
@@ -804,7 +823,7 @@ try { const t = localStorage.getItem('cp-theme'); if (t === 'dark' || t === 'lig
   function drawMonthly() {
     const box = $('#ch-monthly'); if (chartFail(box, 'monthly')) return;
     const s = scopeInfo();
-    const data = rowsOf('monthly').filter((r) => r.scope === s.scope).map((r) => ({ m: r.month, s: N(r.sales), t: N(r.target), ly: N(r.ly_sales) }));
+    const data = byCountry(rowsOf('monthly')).filter((r) => r.scope === s.scope).map((r) => ({ m: r.month, s: N(r.sales), t: N(r.target), ly: N(r.ly_sales) }));
     box.querySelectorAll('svg').forEach((n) => n.remove());
     if (!data.length) return;
     const W = box.clientWidth || 400, H = 240;
@@ -839,7 +858,7 @@ try { const t = localStorage.getItem('cp-theme'); if (t === 'dark' || t === 'lig
   function drawAgingChart(boxId, basis, hot) {
     const box = $(boxId); if (chartFail(box, 'aging')) return;
     const s = scopeInfo();
-    const data = rowsOf('aging').filter((r) => r.scope === s.scope && r.basis === basis).map((r) => ({ b: r.bucket, o: N(r.bucket_order), v: N(r.value) })).sort((a, b) => a.o - b.o);
+    const data = byCountry(rowsOf('aging')).filter((r) => r.scope === s.scope && r.basis === basis).map((r) => ({ b: r.bucket, o: N(r.bucket_order), v: N(r.value) })).sort((a, b) => a.o - b.o);
     box.querySelectorAll('svg').forEach((n) => n.remove());
     if (!data.length) return;
     const W = box.clientWidth || 400, rowH = 30, H = data.length * rowH + 8;
@@ -860,7 +879,7 @@ try { const t = localStorage.getItem('cp-theme'); if (t === 'dark' || t === 'lig
   function drawBrands() {
     const t = $('#tbl-brands'); if (failTable(t, 'brand')) return;
     const brand = params().brand;
-    const rows = inScope(rowsOf('brand')).filter((r) => !brand || r.brand === brand);
+    const rows = inScope(brandRows()).filter((r) => !brand || r.brand === brand);
     drawTable(t, rows, [
       { field: 'brand', label: 'Brand', cls: 'cc-name' },
       { field: 'category', label: 'Category', cls: 'cc-muted' },
@@ -879,7 +898,7 @@ try { const t = localStorage.getItem('cp-theme'); if (t === 'dark' || t === 'lig
   function drawSegments() {
     const t = $('#tbl-segments'); if (failTable(t, 'channel')) return;
     const s = scopeInfo();
-    drawTable(t, rowsOf('channel').filter((r) => r.scope === s.scope), [
+    drawTable(t, byCountry(rowsOf('channel')).filter((r) => r.scope === s.scope), [
       { field: 'segment', label: 'Segment', cls: 'cc-name' },
       { field: 'mtd_sales', label: 'Sales', num: true, fmt: fmtMoney },
       { field: 'ly_mtd_sales', label: 'Last year', num: true, fmt: fmtMoney },
@@ -906,14 +925,14 @@ try { const t = localStorage.getItem('cp-theme'); if (t === 'dark' || t === 'lig
   function drawSku() {
     const t = $('#tbl-sku'); if (failTable(t, 'sku')) return;
     const brand = params().brand;
-    let rows = inScope(rowsOf('sku'));
+    let rows = inScope(skuRows());
     if (brand) rows = rows.filter((r) => r.brand === brand);
     if (local.status !== 'All') rows = rows.filter((r) => r.status === local.status);
-    if (local.search) rows = rows.filter((r) => (r.description + ' ' + r.brand + ' ' + r.hub).toLowerCase().includes(local.search));
-    $('#cc-sku-count').textContent = rows.length + ' item-hub lines';
+    if (local.search) rows = rows.filter((r) => (r.description + ' ' + r.brand + ' ' + r.country).toLowerCase().includes(local.search));
+    $('#cc-sku-count').textContent = rows.length + ' item lines';
     drawTable(t, rows, [
       { field: 'description', label: 'Item', cls: 'cc-name cc-wrap' },
-      { field: 'hub', label: 'Hub' },
+      { field: 'country', label: 'Country' },
       { field: 'status', label: 'Status', fmt: (v) => chip(v, STATUS_TONE[v]) },
       { field: 'days_cover', label: 'Days of cover', num: true, fmt: (v, r) => coverBar(r), sort: (r) => r.days_cover },
       { field: 'cover_incl_inbound', label: 'With POs', num: true, fmt: (v) => (N(v) === null ? '—' : fmtDays(v) + ' d') },
@@ -929,11 +948,11 @@ try { const t = localStorage.getItem('cp-theme'); if (t === 'dark' || t === 'lig
   const fmtCost = (v, uom) => (N(v) === null ? '—' : d3.format(',.2f')(N(v)) + ' / ' + String(uom || '').toLowerCase());
   function drawExpiry() {
     const brand = params().brand;
-    const rows = inScope(rowsOf('sku')).filter((r) => !brand || r.brand === brand);
+    const rows = inScope(skuRows()).filter((r) => !brand || r.brand === brand);
     const t1 = $('#tbl-expired');
     if (!failTable(t1, 'sku')) drawTable(t1, rows.filter((r) => N(r.expired_value) > 0), [
       { field: 'description', label: 'Item', cls: 'cc-name cc-wrap' },
-      { field: 'hub', label: 'Hub' },
+      { field: 'country', label: 'Country' },
       { field: 'brand', label: 'Brand', cls: 'cc-muted' },
       { field: 'expired_qty', label: 'Quantity', num: true, fmt: (v, r) => fmtQty(v, r.uom) },
       { field: 'expired_unit_cost', label: 'Cost price', num: true, fmt: (v, r) => fmtCost(v, r.uom) },
@@ -946,7 +965,7 @@ try { const t = localStorage.getItem('cp-theme'); if (t === 'dark' || t === 'lig
     const t2 = $('#tbl-expiring');
     if (!failTable(t2, 'sku')) drawTable(t2, rows.filter((r) => N(r.at_risk_value) > 0), [
       { field: 'description', label: 'Item', cls: 'cc-name cc-wrap' },
-      { field: 'hub', label: 'Hub' },
+      { field: 'country', label: 'Country' },
       { field: 'brand', label: 'Brand', cls: 'cc-muted' },
       { field: 'at_risk_qty', label: 'Quantity', num: true, fmt: (v, r) => fmtQty(v, r.uom) },
       { field: 'at_risk_unit_cost', label: 'Cost price', num: true, fmt: (v, r) => fmtCost(v, r.uom) },
@@ -963,7 +982,7 @@ try { const t = localStorage.getItem('cp-theme'); if (t === 'dark' || t === 'lig
   function drawCustomers() {
     const t = $('#tbl-cust'); if (failTable(t, 'customers')) return;
     const s = scopeInfo();
-    drawTable(t, rowsOf('customers').filter((r) => r.scope === s.scope), [
+    drawTable(t, byCountry(rowsOf('customers')).filter((r) => r.scope === s.scope), [
       { field: 'customer', label: 'Customer', cls: 'cc-name' },
       { field: 'segment', label: 'Segment', cls: 'cc-muted' },
       { field: 'salesperson', label: 'Salesperson', cls: 'cc-muted' },
@@ -976,8 +995,9 @@ try { const t = localStorage.getItem('cp-theme'); if (t === 'dark' || t === 'lig
   }
   function drawLeak() {
     const t = $('#tbl-leak'); if (failTable(t, 'leak')) return;
-    drawTable(t, inScope(rowsOf('leak')), [
+    drawTable(t, inScope(inCountry(rowsOf('leak'))), [
       { field: 'customer', label: 'Customer', cls: 'cc-name' },
+      { field: 'country', label: 'Country' },
       { field: 'item', label: 'Item', cls: 'cc-wrap' },
       { field: 'salesperson', label: 'Salesperson', cls: 'cc-muted' },
       { field: 'net_sales', label: 'Sales', num: true, fmt: fmtMoney },

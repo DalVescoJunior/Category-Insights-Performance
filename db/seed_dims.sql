@@ -73,7 +73,7 @@ select 1300000 + rn*7,
 from pick
 where abs(h) % 100 < 72;   -- each brand carries roughly 70% of its category's range
 
-insert into org values ('NTH','North Hub',0.60),('CAP','Capital Hub',0.28),('CST','Coastal Hub',0.12);
+insert into org values ('NTH','North Hub',0.60,'USA'),('CAP','Capital Hub',0.28,'BRA'),('CST','Coastal Hub',0.12,'ARE');
 
 insert into salesperson values
  (1,'Adam Rossi','NTH','Foodservice'),(2,'Bella Moreno','NTH','Foodservice'),(3,'Chris Okafor','NTH','Foodservice'),
