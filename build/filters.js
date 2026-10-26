@@ -25,8 +25,9 @@
     fCat.replaceChildren(opt(mgr ? 'All ' + mgr.split(' ')[0] + '’s categories' : 'All categories', ''), ...cats.map((r) => opt(r.scope, r.scope)));
     fCat.value = cat;
     const country = params().country;
-    const countries = Array.from(new Set(rowsOf('kpi').map((r) => r.country).filter(Boolean))).sort();
-    fCountry.replaceChildren(opt('All countries', ''), ...countries.map((c) => opt(c, c)));
+    // only countries the current view sells, so a manager never falls back to all categories
+    const countries = Array.from(new Set(rowsOf('kpi').filter((r) => r.scope === params().scope && r.country).map((r) => r.country))).sort();
+    fCountry.replaceChildren(opt('All countries', ''), ...countries.map((c) => opt(countryLabel(c), c)));
     fCountry.value = countries.includes(country) ? country : '';
     const brands = Array.from(new Set(inScope(brandRows()).map((r) => r.brand))).sort();
     const brand = params().brand;
@@ -39,7 +40,7 @@
     const chipF = (text, clear) => { const c = el('span', 'chip-f', text); const b = el('button', '', '×'); b.type = 'button'; b.setAttribute('aria-label', 'Remove ' + text); b.addEventListener('click', clear); c.append(b); return c; };
     if (mgr && !USER.manager) chips.push(chipF('Manager: ' + mgr, () => setScope(ALL)));
     if (cat) chips.push(chipF('Category: ' + cat, () => setScope(mgr || ALL)));
-    if (country) chips.push(chipF('Country: ' + country, () => dash.setParams({ country: null })));
+    if (country) chips.push(chipF('Country: ' + countryLabel(country), () => dash.setParams({ country: null })));
     if (brand) chips.push(chipF('Brand: ' + brand + ' (tables and alerts)', () => dash.setParams({ brand: null })));
     $('#cc-chips').replaceChildren(...chips);
     const r = kpiRow(ALL);

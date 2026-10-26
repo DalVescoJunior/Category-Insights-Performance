@@ -1,5 +1,6 @@
 -- Reporting views. Every figure on the dashboard is computed here.
--- Views rolled up by scope also carry a country column: null = all countries, otherwise one country's figures.
+-- Country = the brand's country of origin (3-letter code). Views rolled up by scope also carry a country column:
+-- null = all countries, otherwise one country's figures.
 drop view if exists v_alerts, v_margin_leak, v_customers, v_channel, v_aging, v_monthly, v_daily, v_brand, v_kpi, v_sku, v_item_base cascade;
 create or replace view v_period as
 select max(billing_date) as_of,
@@ -45,7 +46,7 @@ o as (
 ),
 keys as (select item_code, org_code from s union select item_code, org_code from k union select item_code, org_code from o),
 x as (
-  select keys.item_code, keys.org_code, og.country, i.description, i.storage, i.uom,
+  select keys.item_code, keys.org_code, b.country_code country, i.description, i.storage, i.uom,
          b.brand_id, b.name brand, c.category_id, c.name category, c.manager, c.assistant,
          c.margin_floor, c.cover_min, c.cover_max,
          coalesce(s.mtd_sales,0) mtd_sales, coalesce(s.mtd_cost,0) mtd_cost, coalesce(s.ly_mtd_sales,0) ly_mtd_sales, coalesce(s.ly_month_sales,0) ly_month_sales,
@@ -58,7 +59,7 @@ x as (
          k.next_expiry - p.as_of days_to_expiry,
          coalesce(o.inbound_qty,0) inbound_qty, coalesce(o.inbound_value,0) inbound_value, o.next_eta,
          coalesce(o.delayed_pos,0) delayed_pos
-  from keys join org og using (org_code) join item i using (item_code) join brand b using (brand_id) join category c using (category_id)
+  from keys join item i using (item_code) join brand b using (brand_id) join category c using (category_id)
   left join s using (item_code, org_code) left join k using (item_code, org_code) left join o using (item_code, org_code)
   cross join p
 ),
@@ -116,11 +117,11 @@ left join (
 create or replace view v_kpi as
 with p as (select * from v_period),
 t as (
-  select b.category_id, o.country,
+  select b.category_id, b.country_code country,
          sum(t.target_value) filter (where t.month = p.month_start) month_target,
          sum(t.target_value) filter (where t.month < p.month_start and t.month >= p.year_start) ytd_target_closed,
          sum(t.target_value * t.target_gm) filter (where t.month = p.month_start) month_target_gp
-  from sales_target t join brand b using (brand_id) join org o using (org_code), p group by 1, 2
+  from sales_target t join brand b using (brand_id), p group by 1, 2
 ),
 c as (
   select ib.category_id, ib.category, ib.manager, ib.assistant, ib.country, max(ib.margin_floor) margin_floor,
@@ -189,8 +190,8 @@ from (select g.*, case when ly_mtd_sales > 0 then mtd_sales / ly_mtd_sales * ly_
 -- Brand drill-down
 create or replace view v_brand as
 with p as (select * from v_period),
-t as (select brand_id, country, sum(target_value) month_target from sales_target join org using (org_code), p where month = p.month_start
-      group by grouping sets ((brand_id), (brand_id, country))),
+t as (select brand_id, b.country_code country, sum(target_value) month_target from sales_target join brand b using (brand_id), p where month = p.month_start
+      group by grouping sets ((brand_id), (brand_id, b.country_code))),
 a as (
   select category, manager, brand_id, brand, country, max(margin_floor) margin_floor,
          sum(mtd_sales) mtd_sales, sum(mtd_cost) mtd_cost, sum(ly_mtd_sales) ly_mtd_sales, sum(ly_month_sales) ly_month_sales,
@@ -214,10 +215,10 @@ from a join brand b using (brand_id) left join t on t.brand_id = a.brand_id and 
 create or replace view v_daily as
 with p as (select * from v_period),
 days as (select generate_series(p.month_start, p.month_start + p.days_in_month - 1, interval '1 day')::date d from p),
-cat as (select c.category_id, c.name category, c.manager, co.country from category c cross join (select distinct country from org) co),
-t as (select b.category_id, o.country, sum(target_value) month_target from sales_target t join brand b using (brand_id) join org o using (org_code), p where month = p.month_start group by 1, 2),
-s as (select i.category_id, o.country, l.billing_date d, sum(net_value) sales from sales_line l join org o using (org_code) join item it using (item_code) join brand i using (brand_id), p where billing_date >= p.month_start group by 1, 2, 3),
-ly as (select i.category_id, o.country, (l.billing_date + interval '1 year')::date d, sum(net_value) sales from sales_line l join org o using (org_code) join item it using (item_code) join brand i using (brand_id), p
+cat as (select distinct c.category_id, c.name category, c.manager, b.country_code country from category c join brand b using (category_id)),
+t as (select b.category_id, b.country_code country, sum(target_value) month_target from sales_target t join brand b using (brand_id), p where month = p.month_start group by 1, 2),
+s as (select i.category_id, i.country_code country, l.billing_date d, sum(net_value) sales from sales_line l join item it using (item_code) join brand i using (brand_id), p where billing_date >= p.month_start group by 1, 2, 3),
+ly as (select i.category_id, i.country_code country, (l.billing_date + interval '1 year')::date d, sum(net_value) sales from sales_line l join item it using (item_code) join brand i using (brand_id), p
        where billing_date between p.month_start - interval '1 year' and p.month_start + p.days_in_month - 1 - interval '1 year' group by 1, 2, 3),
 grid as (
   select days.d, cat.category, cat.manager, cat.country, coalesce(s.sales, 0) sales, coalesce(ly.sales, 0) ly_sales, coalesce(t.month_target, 0) / p.days_in_month day_target
@@ -245,15 +246,15 @@ window w as (partition by scope, country order by d);
 create or replace view v_monthly as
 with p as (select * from v_period),
 m as (select generate_series(p.year_start, p.year_start + interval '11 months', interval '1 month')::date as month from p),
-cat as (select category_id, name category, manager, co.country from category cross join (select distinct country from org) co),
-s as (select b.category_id, o.country, date_trunc('month', billing_date)::date as month,
+cat as (select distinct c.category_id, c.name category, c.manager, b.country_code country from category c join brand b using (category_id)),
+s as (select b.category_id, b.country_code country, date_trunc('month', billing_date)::date as month,
              sum(net_value) filter (where billing_date >= p.year_start) sales,
              sum(cost_value) filter (where billing_date >= p.year_start) cost
-      from sales_line l join org o using (org_code) join item using (item_code) join brand b using (brand_id), p group by 1, 2, 3),
-ly as (select b.category_id, o.country, (date_trunc('month', billing_date) + interval '1 year')::date as month, sum(net_value) sales
-       from sales_line l join org o using (org_code) join item using (item_code) join brand b using (brand_id), p
+      from sales_line l join item using (item_code) join brand b using (brand_id), p group by 1, 2, 3),
+ly as (select b.category_id, b.country_code country, (date_trunc('month', billing_date) + interval '1 year')::date as month, sum(net_value) sales
+       from sales_line l join item using (item_code) join brand b using (brand_id), p
        where billing_date >= p.year_start - interval '1 year' and billing_date < p.year_start group by 1, 2, 3),
-t as (select b.category_id, o.country, month, sum(target_value) target from sales_target join org o using (org_code) join brand b using (brand_id) group by 1, 2, 3),
+t as (select b.category_id, b.country_code country, month, sum(target_value) target from sales_target join brand b using (brand_id) group by 1, 2, 3),
 grid as (
   select m.month, cat.category, cat.manager, cat.country, s.sales, s.cost, ly.sales ly_sales, t.target
   from m cross join cat
@@ -273,7 +274,7 @@ from grid group by grouping sets ((month), (month, manager), (month, manager, ca
 create or replace view v_aging as
 with p as (select * from v_period),
 b as (
-  select c.name category, c.manager, o.country, sb.value,
+  select c.name category, c.manager, br.country_code country, sb.value,
          case when sb.expiry_date < p.as_of then '1 Expired'
               when sb.expiry_date - p.as_of <= 30 then '2 0-30 days'
               when sb.expiry_date - p.as_of <= 60 then '3 31-60 days'
@@ -285,7 +286,7 @@ b as (
               when p.as_of - sb.received_date <= 90 then '3 61-90 days'
               when p.as_of - sb.received_date <= 180 then '4 91-180 days'
               else '5 Over 180 days' end age_bucket
-  from stock_batch sb join org o using (org_code) join item using (item_code) join brand using (brand_id) join category c using (category_id), p
+  from stock_batch sb join item using (item_code) join brand br using (brand_id) join category c using (category_id), p
 ),
 u as (
   select category, manager, country, 'Shelf life left' basis, life_bucket bucket, value from b
@@ -301,11 +302,11 @@ from u group by grouping sets ((basis, bucket), (basis, bucket, manager), (basis
 create or replace view v_channel as
 with p as (select * from v_period),
 x as (
-  select c.name category, c.manager, o.country, cu.segment,
+  select c.name category, c.manager, br.country_code country, cu.segment,
          sum(net_value) filter (where billing_date >= p.month_start) mtd,
          sum(cost_value) filter (where billing_date >= p.month_start) mtd_cost,
          sum(net_value) filter (where billing_date between p.month_start - interval '1 year' and p.as_of - interval '1 year') ly
-  from sales_line l join org o on o.org_code = l.org_code join customer cu using (customer_code) join item using (item_code) join brand using (brand_id) join category c using (category_id), p
+  from sales_line l join customer cu using (customer_code) join item using (item_code) join brand br using (brand_id) join category c using (category_id), p
   where billing_date >= p.month_start - interval '1 year'
   group by 1, 2, 3, 4
 )
@@ -321,11 +322,11 @@ from x group by grouping sets ((segment), (segment, manager), (segment, manager,
 create or replace view v_customers as
 with p as (select * from v_period),
 x as (
-  select c.name category, c.manager, o.country, cu.name customer, cu.segment, sp.name salesperson,
+  select c.name category, c.manager, br.country_code country, cu.name customer, cu.segment, sp.name salesperson,
          sum(net_value) filter (where billing_date >= p.month_start) mtd,
          sum(net_value) filter (where billing_date >= p.month_start - interval '3 months' and billing_date < p.month_start) / 3.0 prev3_avg
-  from sales_line l join org o on o.org_code = l.org_code join customer cu using (customer_code) left join salesperson sp on sp.sp_id = cu.sp_id
-  join item using (item_code) join brand using (brand_id) join category c using (category_id), p
+  from sales_line l join customer cu using (customer_code) left join salesperson sp on sp.sp_id = cu.sp_id
+  join item using (item_code) join brand br using (brand_id) join category c using (category_id), p
   where billing_date >= p.month_start - interval '3 months'
   group by 1, 2, 3, 4, 5, 6
 ),
@@ -352,20 +353,20 @@ from r where rk <= 25;
 -- Lines this month sold under the category margin floor
 create or replace view v_margin_leak as
 with p as (select * from v_period)
-select c.name category, c.manager, o.country, cu.name customer, sp.name salesperson, i.description item,
+select c.name category, c.manager, br.country_code country, cu.name customer, sp.name salesperson, i.description item,
        round(sum(net_value), 0) net_sales,
        round(1 - sum(cost_value) / nullif(sum(net_value), 0), 4) gm_pct,
        c.margin_floor,
        round(c.margin_floor * sum(net_value) - (sum(net_value) - sum(cost_value)), 0) gp_gap,
        string_agg(distinct order_type, ', ') order_types
-from sales_line l join org o on o.org_code = l.org_code join customer cu using (customer_code) left join salesperson sp on sp.sp_id = l.sp_id
-join item i using (item_code) join brand using (brand_id) join category c using (category_id), p
+from sales_line l join customer cu using (customer_code) left join salesperson sp on sp.sp_id = l.sp_id
+join item i using (item_code) join brand br using (brand_id) join category c using (category_id), p
 where billing_date >= p.month_start and qty > 0
-group by c.name, c.manager, o.country, cu.name, sp.name, i.description, c.margin_floor
+group by c.name, c.manager, br.country_code, cu.name, sp.name, i.description, c.margin_floor
 having sum(net_value) > 300 and 1 - sum(cost_value) / nullif(sum(net_value), 0) < c.margin_floor - 0.03;
 
 -- Exceptions: every rule that needs someone to act, ranked by severity then money at stake.
--- Item and customer-item alerts carry their country. Roll-up alerts (category, brand, customer) come once for all countries
+-- Item alerts carry their item's country of origin. Roll-up alerts (category, brand, customer) come once for all countries
 -- (country null) and once per country, flagged country_rollup, so the page shows the set that matches its country filter.
 create or replace view v_alerts as
 with p as (select * from v_period),
@@ -429,11 +430,12 @@ a as (
          (margin_floor - gm_pct) * mtd_sales, 'Check cost increases and discount approvals'
   from v_kpi where level = 'category' and gm_pct < margin_floor
   union all
-  select 3, 'Margin leakage', ml.category, ml.manager, c.assistant, ml.country, false, ml.customer,
+  select 3, 'Margin leakage', ml.category, ml.manager, c.assistant, ml.country, true, ml.customer,
          count(*) || ' items sold under the floor; ' || string_agg(distinct ml.salesperson, ', '),
          sum(ml.gp_gap), 'Review pricing with the salesperson'
   from v_margin_leak ml join category c on c.name = ml.category
-  group by ml.category, ml.manager, c.assistant, ml.country, ml.customer having sum(ml.gp_gap) > 250
+  group by grouping sets ((ml.category, ml.manager, c.assistant, ml.customer), (ml.category, ml.manager, c.assistant, ml.customer, ml.country))
+  having sum(ml.gp_gap) > 250
   union all
   select case when cu.trend = 'Lapsed' then 2 else 3 end, 'Customer ' || lower(cu.trend), cu.scope, c.manager, c.assistant, cu.country, true, cu.customer,
          'Buying ' || coalesce(round(cu.run_rate_pct * 100) || '%', '0%') || ' of its usual pace (' || cu.salesperson || ')',

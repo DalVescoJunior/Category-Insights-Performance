@@ -9,7 +9,27 @@ insert into category values
  (7,'Pastry & Bakery','Tom Becker','Ken Ito',0.25,21,75,0.09),
  (8,'Grocery & Oils','Tom Becker','Ken Ito',0.18,21,75,0.07);
 
-insert into brand values
+insert into country values
+ ('ARE','United Arab Emirates'),
+ ('AUS','Australia'),
+ ('AUT','Austria'),
+ ('BEL','Belgium'),
+ ('BRA','Brazil'),
+ ('CAN','Canada'),
+ ('DEU','Germany'),
+ ('ESP','Spain'),
+ ('FRA','France'),
+ ('GBR','United Kingdom'),
+ ('IND','India'),
+ ('ITA','Italy'),
+ ('NLD','Netherlands'),
+ ('NOR','Norway'),
+ ('NZL','New Zealand'),
+ ('USA','United States of America'),
+ ('VNM','Vietnam'),
+ ('ZAF','South Africa');
+
+insert into brand (brand_id, name, category_id, origin, supplier) values
  (1,'Ridgeline Angus',1,'Australia','Ridgeline Meats Pty'),
  (2,'Pampas Prime',1,'Brazil','Pampas Exports SA'),
  (3,'Highveld Beef',1,'South Africa','Highveld Packers'),
@@ -35,6 +55,7 @@ insert into brand values
  (23,'Sunfield Oils',8,'USA','Sunfield Oils Inc'),
  (24,'Casa Grano',8,'Italy','Casa Grano SpA'),
  (25,'Spice Route',8,'India','Spice Route Exports');
+update brand b set country_code = c.code from country c where c.name = b.origin or (b.origin = 'USA' and c.code = 'USA');
 
 -- Item templates per category: name, unit cost, storage, uom
 with tpl(category_id, t, cost, storage, uom) as (values
@@ -73,7 +94,7 @@ select 1300000 + rn*7,
 from pick
 where abs(h) % 100 < 72;   -- each brand carries roughly 70% of its category's range
 
-insert into org values ('NTH','North Hub',0.60,'USA'),('CAP','Capital Hub',0.28,'BRA'),('CST','Coastal Hub',0.12,'ARE');
+insert into org values ('NTH','North Hub',0.60),('CAP','Capital Hub',0.28),('CST','Coastal Hub',0.12);
 
 insert into salesperson values
  (1,'Adam Rossi','NTH','Foodservice'),(2,'Bella Moreno','NTH','Foodservice'),(3,'Chris Okafor','NTH','Foodservice'),

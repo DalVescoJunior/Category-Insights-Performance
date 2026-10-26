@@ -211,14 +211,14 @@
 
   <section class="cc-page" id="stock" role="tabpanel" aria-labelledby="tab-stock" hidden>
     <div class="cc-card" id="card-sku">
-      <div class="cc-card-head"><h2>Items by country</h2><span class="cc-note">Cover = available in-date stock ÷ average daily units sold over 28 days. Green band = the category's target range.</span></div>
+      <div class="cc-card-head"><h2>Items by hub</h2><span class="cc-note">Cover = available in-date stock ÷ average daily units sold over 28 days. Green band = the category's target range.</span></div>
       <div class="cc-filters" id="cc-status-filters"></div>
       <div class="cc-filters">
         <input type="search" id="cc-sku-search" class="cc-search" placeholder="Search item, brand or country" aria-label="Search items">
         <span class="cc-note" id="cc-sku-count"></span>
       </div>
       <div class="cc-scroll">
-        <table class="cc-table" id="tbl-sku" data-source="sku" data-row-key="item_code,country"></table>
+        <table class="cc-table" id="tbl-sku" data-source="sku" data-row-key="item_code,hub"></table>
       </div>
     </div>
   </section>
@@ -236,13 +236,13 @@
       <div class="cc-card cc-card-wide" id="card-expiring">
         <div class="cc-card-head"><h2>Expiring within 30 days</h2><span class="cc-note">Still sellable: sell, bundle or move these first</span></div>
         <div class="cc-scroll">
-          <table class="cc-table" id="tbl-expiring" data-source="sku" data-row-key="item_code,country"></table>
+          <table class="cc-table" id="tbl-expiring" data-source="sku" data-row-key="item_code,hub"></table>
         </div>
       </div>
       <div class="cc-card cc-card-wide" id="card-expired">
         <div class="cc-card-head"><h2>Expired stock</h2><span class="cc-note">Past its expiry date: block, write off or claim from the supplier</span></div>
         <div class="cc-scroll">
-          <table class="cc-table" id="tbl-expired" data-source="sku" data-row-key="item_code,country"></table>
+          <table class="cc-table" id="tbl-expired" data-source="sku" data-row-key="item_code,hub"></table>
         </div>
       </div>
     </div>
@@ -282,7 +282,8 @@
       <ul class="cc-defs">
         <li>Pace: sales month to date ÷ the month's target phased evenly to today.</li>
         <li>Forecast: sales month to date scaled by how the same month finished last year, so it follows the season.</li>
-        <li>Days of cover: available in-date stock ÷ average units sold per day over the last 28 days, per item and hub (each hub sits in one country).</li>
+        <li>Days of cover: available in-date stock ÷ average units sold per day over the last 28 days, per item and hub.</li>
+        <li>Country: the brand's country of origin, as a 3-letter code.</li>
         <li>Low cover and overstock use each category's own minimum and maximum days.</li>
         <li>Expiring: available stock with 30 days or less of shelf life left.</li>
         <li>Margin floor: the lowest gross margin the category accepts; lines below it show under Customers &amp; margin.</li>
@@ -324,6 +325,8 @@
   const brandRows = () => byCountry(rowsOf('brand'));
   const skuRows = () => inCountry(rowsOf('sku'));
   const kpiRow = (scope) => kpiRows().find((r) => r.scope === scope);
+  const countryName = (c) => { const r = rowsOf('countries').find((x) => x.code === c); return r ? r.name : c; };
+  const countryLabel = (c) => (countryName(c) === c ? c : c + ' – ' + countryName(c));
   const scopeInfo = () => {
     const p = params();
     const r = kpiRow(p.scope) || kpiRow(ALL);
@@ -416,9 +419,10 @@
   function drawScope() {
     const k = kpiRows();
     if (!k.length) return;
-    const countries = Array.from(new Set(rowsOf('kpi').map((r) => r.country).filter(Boolean))).sort();
-    countrySel.replaceChildren(new Option('All countries', ''), ...countries.map((c) => new Option(c, c)));
+    const countries = Array.from(new Set(rowsOf('kpi').filter((r) => r.scope === params().scope && r.country).map((r) => r.country))).sort();
+    countrySel.replaceChildren(new Option('All countries', ''), ...countries.map((c) => new Option(countryLabel(c), c)));
     countrySel.value = countries.includes(params().country) ? params().country : '';
+    if (params().country && !countries.includes(params().country)) dash.setParams({ country: null });
     const opts = [];
     const total = k.find((r) => r.level === 'total');
     if (total) opts.push(new Option('All categories', total.scope));
@@ -442,7 +446,7 @@
     const mark = (field, text) => { const b = el('b', '', text); b.dataset.source = 'kpi'; b.dataset.field = field; b.dataset.where = where; return b; };
     const pace = N(r.pace_pct);
     ta.replaceChildren(
-      document.createTextNode((params().country ? 'In ' + params().country + ', ' : '') + (s.scope === ALL ? (params().country ? 'all categories are' : 'All categories are') : s.scope + (s.level === 'manager' ? '’s categories are' : ' is')) + ' at '),
+      document.createTextNode((params().country ? 'For ' + countryName(params().country) + ' brands, ' : '') + (s.scope === ALL ? (params().country ? 'all categories are' : 'All categories are') : s.scope + (s.level === 'manager' ? '’s categories are' : ' is')) + ' at '),
       mark('pace_pct', fmtPct(r.pace_pct, 0)),
       document.createTextNode(' of target to date and heading for '),
       mark('forecast_pct', fmtPct(r.forecast_pct, 0)),

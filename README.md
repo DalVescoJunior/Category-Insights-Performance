@@ -2,7 +2,7 @@
 
 Strategic and operational dashboard for category managers and their assistants: sales vs target and forecast, stock cover by item and hub, aging and expiry, customer pace, margin leakage and a ranked alert list. Runs on generated sample data only.
 
-- `db/` – schema, sample-data generators and the reporting views (all KPIs are computed in SQL). Each hub (`org`) has a 3-letter country code; the rolled-up views carry a `country` column (null = all countries) that the Country filter picks from. On an existing database run `db/migrations/2026-10-26_org_country.sql`, then `db/views.sql`.
+- `db/` – schema, sample-data generators and the reporting views (all KPIs are computed in SQL). Each brand has a country of origin (`country` table: 3-letter code and name); the rolled-up views carry a `country` column (null = all countries) that the Country filter picks from. On an existing database run `db/migrations/2026-10-26_country.sql`, then `db/views.sql`.
 - `datasets.json` – the query behind each dataset the page reads.
 - `public/pulse.html` – the deployed page in the Executive Pulse style (sidebar, filter bar, KPI cards, navy tables). It is generated: edit `public/index.html` (content and charts) or the pieces in `build/` and `public/pulse-*.html`, then run `python3 build/make_pulse.py`.
 - `public/index.html` + `public/shell.html` – the original page and wrapper, also used by the claude.ai dashboard version.
