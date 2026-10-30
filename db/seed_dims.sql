@@ -9,7 +9,27 @@ insert into category values
  (7,'Pastry & Bakery','Tom Becker','Ken Ito',0.25,21,75,0.09),
  (8,'Grocery & Oils','Tom Becker','Ken Ito',0.18,21,75,0.07);
 
-insert into brand values
+insert into country values
+ ('ARE','United Arab Emirates'),
+ ('AUS','Australia'),
+ ('AUT','Austria'),
+ ('BEL','Belgium'),
+ ('BRA','Brazil'),
+ ('CAN','Canada'),
+ ('DEU','Germany'),
+ ('ESP','Spain'),
+ ('FRA','France'),
+ ('GBR','United Kingdom'),
+ ('IND','India'),
+ ('ITA','Italy'),
+ ('NLD','Netherlands'),
+ ('NOR','Norway'),
+ ('NZL','New Zealand'),
+ ('USA','United States of America'),
+ ('VNM','Vietnam'),
+ ('ZAF','South Africa');
+
+insert into brand (brand_id, name, category_id, origin, supplier) values
  (1,'Ridgeline Angus',1,'Australia','Ridgeline Meats Pty'),
  (2,'Pampas Prime',1,'Brazil','Pampas Exports SA'),
  (3,'Highveld Beef',1,'South Africa','Highveld Packers'),
@@ -35,6 +55,7 @@ insert into brand values
  (23,'Sunfield Oils',8,'USA','Sunfield Oils Inc'),
  (24,'Casa Grano',8,'Italy','Casa Grano SpA'),
  (25,'Spice Route',8,'India','Spice Route Exports');
+update brand b set country_code = c.code from country c where c.name = b.origin or (b.origin = 'USA' and c.code = 'USA');
 
 -- Item templates per category: name, unit cost, storage, uom
 with tpl(category_id, t, cost, storage, uom) as (values
@@ -55,7 +76,7 @@ with tpl(category_id, t, cost, storage, uom) as (values
  (8,'Frying Oil 20L',95,'Ambient','CS'),(8,'Extra Virgin Olive Oil 5L',48,'Ambient','PC'),(8,'Penne Pasta 5kg',32,'Ambient','CS'),
  (8,'Basmati Rice 20kg',70,'Ambient','BAG'),(8,'Tomato Passata',40,'Ambient','CS'),(8,'Black Pepper Ground 1kg',26,'Ambient','PC')
 ), pick as (
- select b.brand_id, b.name bname, c.category_id, c.margin_floor, tpl.*,
+ select b.brand_id, b.name bname, c.margin_floor, tpl.*,
         row_number() over (order by b.brand_id, tpl.t) rn,
         hashtext(b.name || tpl.t) h
  from brand b join category c using (category_id) join tpl using (category_id)

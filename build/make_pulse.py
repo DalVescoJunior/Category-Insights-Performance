@@ -18,7 +18,7 @@ sec = sec[:tiles_start] + [
 sections = '\n'.join(sec)
 sections = re.sub(r' role="tabpanel" aria-labelledby="tab-\w+"', '', sections)
 sections = sections.replace('Click a brand to see its items in Stock &amp; cover', 'Click a brand to filter the page to it')
-sections = sections.replace('show under Customers &amp; margin', 'show under Customers &amp; Margin')
+sections = sections.replace('show under Customers &amp; margin', 'show under Customers &amp; Leakage')
 
 js = '\n'.join(src[script:])
 
@@ -46,10 +46,11 @@ js = js[:start] + (root / 'build/tiles.js').read_text() + js[end:]
 # pages: sidebar links instead of tabs
 start = js.index('  // ---------- pages ----------')
 end = js.index('  const start = (location.hash')
-js = js[:start] + (root / 'build/pages.js').read_text() + js[end:]
+js = js[:start] + (root / 'build/perf.js').read_text() + (root / 'build/pages.js').read_text() + js[end:]
 sub("$('#cc-asof').textContent = fmtDate(String(r.as_of).slice(0, 10));", "$('#cc-asof').textContent = d3.utcFormat('%-d %b %Y')(new Date(String(r.as_of).slice(0, 10) + 'T00:00:00Z'));")
 sub("dash.setParams({ brand: r.brand }); showPage('stock');", "dash.setParams({ brand: r.brand });", 2)
 
+sections += '\n\n' + (root / 'build/perf.html').read_text()
 out = head + top + sections + '\n</div>\n' + (root / 'build/foot.html').read_text() + js + '\n</body>\n</html>\n'
 (root / 'public/pulse.html').write_text(out)
 print(len(out))

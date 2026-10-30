@@ -1,0 +1,120 @@
+  <section class="cc-page" id="summary" hidden>
+    <div class="pf-bar" role="group" aria-label="Sales summary options">
+      <label class="field">Period <select id="sm-period"></select></label>
+      <span class="pf-compare" id="sm-compare"></span>
+    </div>
+    <div class="kpi-row pf-kpis" id="sm-kpis"></div>
+    <div class="cc-grid">
+      <div class="cc-card" id="card-bridge">
+        <div class="cc-card-head"><h2>What changed against last year</h2><span class="cc-note">Like-for-like: the same days last year</span></div>
+        <p class="cc-note">Last year's sales, then what moved them: more or fewer units of items sold in both years (volume), price and discount changes on those items (price), items sold now but not then (new lines) and items no longer sold (lost lines).</p>
+        <div class="cc-chart" id="ch-bridge"></div>
+      </div>
+      <div class="cc-card" id="card-movers">
+        <div class="cc-card-head"><h2>Brands driving the change</h2><span class="cc-note">Sales gained or lost against last year, AED</span></div>
+        <div class="pf-tabs" id="sm-movers-by" role="group" aria-label="Show change by"></div>
+        <div class="cc-chart" id="ch-movers"></div>
+      </div>
+      <div class="cc-card cc-card-wide" id="card-orgdiv">
+        <div class="cc-card-head"><h2>By sales organisation and division</h2><span class="cc-note"><span class="pf-tabs" id="sm-orgdiv-order" role="group" aria-label="Group rows by"></span></span></div>
+        <div class="cc-scroll">
+          <table class="cc-table pf-table" id="tbl-orgdiv"></table>
+        </div>
+      </div>
+      <div class="cc-card cc-card-wide" id="card-sm-brand">
+        <div class="cc-card-head"><h2>By brand</h2><span class="cc-note">▸ opens a brand by sales organisation and division · <button type="button" class="cc-link" id="sm-brand-toggle">Expand all</button></span></div>
+        <div class="cc-scroll">
+          <table class="cc-table pf-table" id="tbl-sm-brand"></table>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="cc-page" id="brandtrack" hidden>
+    <div class="pf-bar" role="group" aria-label="Brand tracking options">
+      <label class="field">Measure <select id="bt-measure">
+        <option value="sales">Sales (AED)</option>
+        <option value="qty">Quantity</option>
+        <option value="profit">Gross profit (AED)</option>
+        <option value="gm">Gross margin %</option>
+      </select></label>
+      <label class="field">Show <select id="bt-show">
+        <option value="value">This year</option>
+        <option value="delta">Change vs last year</option>
+      </select></label>
+      <label class="field">Sales organisation <select id="bt-org"></select></label>
+      <label class="field">Division <select id="bt-div"></select></label>
+    </div>
+    <div class="cc-card" id="card-bt-chart">
+      <div class="cc-card-head"><h2 id="bt-chart-title">This year by month</h2><span class="cc-note" id="bt-chart-note"></span></div>
+      <div class="cc-legend" aria-hidden="true">
+        <span><i class="cc-sw cc-sw-box" style="background: var(--cds-series-1)"></i>This year</span>
+        <span><i class="cc-sw cc-sw-box" style="background: var(--cds-chart-muted)"></i>Last year</span>
+        <span><i class="cc-sw" style="border-color: var(--cds-chart-reference)"></i>Target</span>
+      </div>
+      <div class="cc-chart" id="ch-bt"></div>
+    </div>
+    <div class="cc-card" id="card-bt">
+      <div class="cc-card-head"><h2>Brands month by month</h2><span class="cc-note">▸ opens a brand by division, then by item · cell shade = change against the same month last year · <button type="button" class="cc-link" id="bt-toggle">Expand all</button></span></div>
+      <ul class="legend pf-heat-legend" aria-label="Legend"><li><span class="pf-heat-sw" data-h="-3"></span><span class="pf-heat-sw" data-h="-2"></span><span class="pf-heat-sw" data-h="-1"></span> below last year</li><li><span class="pf-heat-sw" data-h="1"></span><span class="pf-heat-sw" data-h="2"></span><span class="pf-heat-sw" data-h="3"></span> above last year</li><li>Current month: same days last year</li></ul>
+      <div class="cc-scroll pf-tall">
+        <table class="cc-table pf-table pf-matrix" id="tbl-bt"></table>
+      </div>
+    </div>
+  </section>
+
+  <section class="cc-page" id="dailytrack" hidden>
+    <div class="pf-bar" role="group" aria-label="Daily tracking options">
+      <label class="field">Rows by <select id="dt-by1"></select></label>
+      <label class="field">Then by <select id="dt-by2"></select></label>
+      <label class="field">Measure <select id="dt-measure">
+        <option value="s">Sales (AED)</option>
+        <option value="q">Quantity</option>
+      </select></label>
+      <label class="field">Search <input type="search" id="dt-search" class="pf-input" placeholder="Name or code"></label>
+    </div>
+    <div class="cc-card" id="card-dt-chart">
+      <div class="cc-card-head"><h2 id="dt-chart-title">Daily sales</h2><span class="cc-note">Weekends shaded · ticks = the same date last year</span></div>
+      <div class="cc-legend" aria-hidden="true">
+        <span><i class="cc-sw cc-sw-box" style="background: var(--cds-series-1)"></i>This month</span>
+        <span><i class="cc-sw" style="border-color: #c99a2e"></i>Same date last year</span>
+      </div>
+      <div class="cc-chart" id="ch-dt"></div>
+    </div>
+    <div class="cc-card" id="card-dt">
+      <div class="cc-card-head"><h2 id="dt-title">Day by day</h2><span class="cc-note"><span id="dt-count"></span> · <button type="button" class="cc-link" id="dt-toggle">Expand all</button></span></div>
+      <div class="cc-scroll pf-tall">
+        <table class="cc-table pf-table pf-matrix pf-daily" id="tbl-dt"></table>
+      </div>
+    </div>
+  </section>
+
+  <section class="cc-page" id="margin" hidden>
+    <div class="pf-bar" role="group" aria-label="Margin tracker options">
+      <label class="field">Month <select id="mg-month"></select></label>
+      <label class="field">View by <select id="mg-by">
+        <option value="it">Item (SKU)</option>
+        <option value="brand">Brand</option>
+        <option value="cu">Customer</option>
+        <option value="sp">Salesperson</option>
+      </select></label>
+      <label class="field">Show <select id="mg-show">
+        <option value="all">All</option>
+        <option value="below">Below margin floor</option>
+        <option value="thin">Within 3 points of the floor</option>
+        <option value="drop">Margin down 2+ points vs last year</option>
+      </select></label>
+      <label class="field">Search <input type="search" id="mg-search" class="pf-input" placeholder="Name or code"></label>
+    </div>
+    <div class="kpi-row pf-kpis" id="mg-kpis"></div>
+    <div class="cc-card" id="card-mg-map">
+      <div class="cc-card-head"><h2 id="mg-map-title">Margin map</h2><span class="cc-note">Each mark is one row of the table below: sales across (log scale), margin up. Shape and colour compare it with its own category floor; the dashed line is the average floor.</span></div>
+      <div class="cc-chart" id="ch-mg"></div>
+    </div>
+    <div class="cc-card" id="card-mg">
+      <div class="cc-card-head"><h2 id="mg-title">Margin by item</h2><span class="cc-note"><span id="mg-count"></span> · ▸ opens the detail · <button type="button" class="cc-link" id="mg-toggle">Expand all</button></span></div>
+      <div class="cc-scroll pf-tall">
+        <table class="cc-table pf-table" id="tbl-mg"></table>
+      </div>
+    </div>
+  </section>

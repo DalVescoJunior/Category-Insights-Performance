@@ -9,12 +9,14 @@ create table category (
   cover_max int not null,             -- days of cover above which we call overstock
   line_share numeric not null         -- share of order lines (generator only)
 );
+create table country (code text primary key, name text not null);   -- ISO 3166 alpha-3 code and English name
 create table brand (
   brand_id smallint primary key,
   name text not null,
   category_id smallint not null references category,
   origin text not null,
-  supplier text not null
+  supplier text not null,
+  country_code text references country   -- country of origin, filled from origin
 );
 create table item (
   item_code int primary key,
