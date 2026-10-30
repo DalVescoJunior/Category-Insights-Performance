@@ -203,6 +203,7 @@ a { color: var(--brand-blue); }
 /* ---------- performance pages ---------- */
 .pf-bar { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 16px; display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; }
 .pf-bar .field select, .pf-input { min-width: 10rem; }
+.pf-bar select:disabled { opacity: .55; cursor: not-allowed; }
 .pf-input { font: inherit; font-size: 14px; color: var(--text); background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 7px 10px; }
 .pf-compare { font-size: 13px; color: var(--text-muted); padding-bottom: 9px; }
 .kpi-row.pf-kpis { grid-template-columns: repeat(auto-fill, minmax(min(100%, 172px), 1fr)); }
@@ -561,6 +562,8 @@ try { const t = localStorage.getItem('cp-theme'); if (t === 'dark' || t === 'lig
     <div class="pf-bar" role="group" aria-label="Daily tracking options">
       <label class="field">Rows by <select id="dt-by1"></select></label>
       <label class="field">Then by <select id="dt-by2"></select></label>
+      <label class="field">Then by <select id="dt-by3"></select></label>
+      <label class="field">Then by <select id="dt-by4"></select></label>
       <label class="field">Measure <select id="dt-measure">
         <option value="s">Sales (AED)</option>
         <option value="q">Quantity</option>
@@ -1615,8 +1618,8 @@ try { const t = localStorage.getItem('cp-theme'); if (t === 'dark' || t === 'lig
     const W = box.clientWidth || 400, H = 240;
     const svg = d3.select(box).append('svg').attr('width', '100%').attr('viewBox', `0 0 ${W} ${H}`).attr('height', H);
     const vals = data.flatMap((r) => [r.s, r.ly, r.t]).filter((v) => v !== null && isFinite(v));
-    const lo = Math.min(0, d3.min(vals) || 0), hi = Math.max(0, d3.max(vals) || 1) * 1.08;
-    const y = d3.scaleLinear([lo, hi], [H - 24, 10]).nice();
+    const lo = Math.min(0, d3.min(vals) || 0), hi = Math.max(0, d3.max(vals) || 1) * 1.12;
+    const y = d3.scaleLinear([lo, hi], [H - 24, 16]).nice();
     const ticks = y.ticks(4);
     const ml = measure(svg, ticks.map(axisFmt)) + 10;
     const x = d3.scaleBand(data.map((r) => r.m), [ml, W - 4]).padding(0.25);
@@ -1627,8 +1630,16 @@ try { const t = localStorage.getItem('cp-theme'); if (t === 'dark' || t === 'lig
     const bar = (k, color) => svg.append('g').selectAll('rect').data(data.filter((r) => r[k] !== null)).join('rect')
       .attr('x', (r) => x(r.m) + xi(k)).attr('width', xi.bandwidth()).attr('y', (r) => Math.min(y(r[k]), y(0))).attr('height', (r) => Math.abs(y(0) - y(r[k]))).attr('rx', 3).attr('fill', color);
     bar('ly', 'var(--cds-chart-muted)'); bar('s', 'var(--cds-series-1)');
+    // value on top of each bar (below it when negative), with a halo so it stays readable across the target line;
+    // when the bars are narrow only this year's value is shown
+    const short = pct ? axisFmt : (v) => { const a = Math.abs(v); return a >= 1e6 ? (v / 1e6).toFixed(2) + 'M' : a >= 1e4 ? Math.round(v / 1e3) + 'K' : a >= 1e3 ? (v / 1e3).toFixed(1) + 'K' : String(Math.round(v)); };
+    const labels = (k, style) => svg.append('g').selectAll('text').data(data.filter((r) => r[k] !== null && r[k] !== 0)).join('text')
+      .attr('x', (r) => x(r.m) + xi(k) + xi.bandwidth() / 2).attr('y', (r) => (r[k] < 0 ? y(r[k]) + 12 : y(r[k]) - 4)).attr('text-anchor', 'middle')
+      .attr('style', 'paint-order: stroke; stroke: var(--surface); stroke-width: 3px; stroke-linejoin: round; ' + style).text((r) => short(r[k]));
     svg.append('g').selectAll('line').data(data.filter((r) => r.t !== null)).join('line').attr('x1', (r) => x(r.m) - 2).attr('x2', (r) => x(r.m) + x.bandwidth() + 2).attr('y1', (r) => y(r.t)).attr('y2', (r) => y(r.t)).attr('stroke', 'var(--cds-chart-reference)').attr('stroke-width', 2);
     svg.append('line').attr('x1', ml).attr('x2', W - 4).attr('y1', y(0)).attr('y2', y(0)).attr('stroke', 'var(--cds-chart-axis)');
+    if (xi.bandwidth() >= 30) labels('ly', 'fill: var(--text-muted); font-size: 10.5px');
+    if (xi.bandwidth() >= 16) labels('s', 'fill: var(--color-fg); font-size: 11px; font-weight: 600');
     const tip = tipFor(box);
     svg.append('g').selectAll('rect').data(data).join('rect').attr('x', (r) => x(r.m) - (x.step() - x.bandwidth()) / 2).attr('width', x.step()).attr('y', 0).attr('height', H).attr('fill', 'transparent')
       .on('pointermove', (ev, r) => {
@@ -1649,8 +1660,8 @@ try { const t = localStorage.getItem('cp-theme'); if (t === 'dark' || t === 'lig
     div: { label: 'Division', plural: 'divisions', key: (r) => custOf(r.cu).division || '—', name: (k) => k },
     org: { label: 'Sales organisation', plural: 'sales organisations', key: (r) => custOf(r.cu).org || '—', name: (k) => orgName(k) },
   };
-  local.dt = { by1: 'sp', by2: 'cu', measure: 's', search: '' };
-  ['by1', 'by2', 'measure'].forEach((k) => { const s = $('#dt-' + k); s.addEventListener('change', () => { local.dt[k] = s.value; local.tree['tbl-dt'] = null; redraw(); }); });
+  local.dt = { by1: 'sp', by2: 'cu', by3: '', by4: '', measure: 's', search: '' };
+  ['by1', 'by2', 'by3', 'by4', 'measure'].forEach((k) => { const s = $('#dt-' + k); s.addEventListener('change', () => { local.dt[k] = s.value; local.tree['tbl-dt'] = null; redraw(); }); });
   $('#dt-search').addEventListener('input', (e) => { local.dt.search = e.target.value.trim().toLowerCase(); redraw(); });
   bindToggle($('#dt-toggle'), $('#tbl-dt'));
   function drawDailyTrack() {
@@ -1659,13 +1670,20 @@ try { const t = localStorage.getItem('cp-theme'); if (t === 'dark' || t === 'lig
     const a = asOfInfo();
     const dimOpts = Object.entries(DT_DIMS).map(([k, d]) => [k, d.label]);
     local.dt.by1 = fillSelect($('#dt-by1'), dimOpts, local.dt.by1);
-    local.dt.by2 = fillSelect($('#dt-by2'), [['', 'Nothing'], ...dimOpts.filter(([k]) => k !== local.dt.by1)], local.dt.by2);
-    const q = local.dt.measure; const d1 = DT_DIMS[local.dt.by1], d2 = local.dt.by2 ? DT_DIMS[local.dt.by2] : null;
+    // each "Then by" offers the dimensions not used above it; after a "Nothing" the rest switch off
+    const used = [local.dt.by1];
+    ['by2', 'by3', 'by4'].forEach((k) => {
+      const sel = $('#dt-' + k), on = used.length === Number(k.slice(2)) - 1;
+      sel.disabled = !on;
+      local.dt[k] = fillSelect(sel, [['', 'Nothing'], ...(on ? dimOpts.filter(([d]) => !used.includes(d)) : [])], on ? local.dt[k] : '');
+      if (local.dt[k]) used.push(local.dt[k]);
+    });
+    const q = local.dt.measure; const dims = used.map((k) => DT_DIMS[k]); const d1 = dims[0];
     let rows = viewRows('daily_detail', 'it');
     if (local.dt.search) {
       const s = local.dt.search;
       const hit = (d, r) => { const k = d.key(r); return String(d.name(k, [r])).toLowerCase().includes(s) || String(k).toLowerCase().includes(s); };
-      rows = rows.filter((r) => hit(d1, r) || (d2 && hit(d2, r)));
+      rows = rows.filter((r) => dims.some((d) => hit(d, r)));
     }
     const days = d3.range(1, a.day + 1);
     const meas = (rs) => {
@@ -1676,14 +1694,14 @@ try { const t = localStorage.getItem('cp-theme'); if (t === 'dark' || t === 'lig
       return v;
     };
     const lv = (d) => ({ key: d.key, label: (k, rs) => d.name(k, rs), sub: d.sub ? (k) => d.sub(k) : null });
-    const nodes = buildNodes(rows, d2 ? [lv(d1), lv(d2)] : [lv(d1)], meas, (n) => n.v.mtd || n.v.ly || n.v.pm);
+    const nodes = buildNodes(rows, dims.map(lv), meas, (n) => n.v.mtd || n.v.ly || n.v.pm);
     const fmtV = (v) => (N(v) ? fmtInt(v) : '');
     const monthStart = new Date(Date.UTC(a.year, a.asOf.getUTCMonth(), 1));
     const dayDate = (d) => new Date(monthStart.getTime() + (d - 1) * 864e5);
     const weekend = (d) => [0, 6].includes(dayDate(d).getUTCDay());
     const pmLabel = d3.utcFormat('%b')(new Date(Date.UTC(a.year, a.asOf.getUTCMonth() - 1, 1)));
     const cols = [
-      { field: 'label', label: d1.label + (d2 ? ' → ' + d2.label : '') },
+      { field: 'label', label: dims.map((d) => d.label).join(' → ') },
       { field: 'pm', label: pmLabel, sub: 'full month', num: true, fmt: fmtInt },
       { field: 'ly', label: 'Last year', sub: '1–' + a.day, num: true, fmt: fmtInt },
       { field: 'mtd', label: 'This month', sub: '1–' + a.day, num: true, fmt: fmtInt, cls: 'pf-strong' },
