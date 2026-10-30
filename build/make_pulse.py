@@ -19,6 +19,12 @@ sections = '\n'.join(sec)
 sections = re.sub(r' role="tabpanel" aria-labelledby="tab-\w+"', '', sections)
 sections = sections.replace('Click a brand to see its items in Stock &amp; cover', 'Click a brand to filter the page to it')
 sections = sections.replace('show under Customers &amp; margin', 'show under Customers &amp; Leakage')
+LEGEND_OLD = '''          <span><i class="cc-sw cc-sw-box" id="lg-bar"></i>Sales</span>
+          <span><i class="cc-sw" style="border-color: var(--cds-chart-reference)"></i>Target</span>
+          <span><i class="cc-sw cc-sw-box" style="background: var(--cds-chart-muted); border-radius: 50%"></i>Last year</span>'''
+assert LEGEND_OLD in sections
+sections = sections.replace(LEGEND_OLD, (root / 'build/target-legend.html').read_text().rstrip('\n'))
+sections = sections.replace('<span class="cc-note">Sales against monthly target and last year</span>', '<span class="cc-note">Above each bar: % against target and the amount achieved. This month is judged against its target to date.</span>')
 
 js = '\n'.join(src[script:])
 
@@ -42,6 +48,11 @@ sub("""  $('#cc-brand-pill').addEventListener('click', () => dash.setParams({ br
 start = js.index('  function drawTiles() {')
 end = js.index('  function drawScorecard() {')
 js = js[:start] + (root / 'build/tiles.js').read_text() + js[end:]
+
+# monthly chart: replaced by the target-coloured version in perf.js
+start = js.index('  function drawMonthly() {')
+end = js.index('  function drawAgingChart(')
+js = js[:start] + js[end:]
 
 # pages: sidebar links instead of tabs
 start = js.index('  // ---------- pages ----------')
