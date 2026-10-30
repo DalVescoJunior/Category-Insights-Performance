@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Category Pulse</title>
+<title>Category Insights &amp; Performance</title>
 <link rel="icon" href="/brand/aramtec-logo.png">
 <style>
 /* Design tokens follow Executive Pulse (Management-Cockpit src/app/globals.css): navy brand, green accents,
@@ -16,6 +16,8 @@
   --tbl-head-bg: #233066; --tbl-head-text: #ffffff; --tbl-stripe: #f4f6fb; --tbl-hover: #e8edf9;
   --tone-over-bg: #e3f3e9; --tone-over-text: #11663a; --tone-short-bg: #fbe6e4; --tone-short-text: #a8241c; --tone-warn-bg: #fdf1d8; --tone-warn-text: #8a5300;
   --on-brand: #ffffff; --focus: #1a73e8; --radius: 10px;
+  --nav-bg: #2a3879; --nav-text: #ffffff; --nav-muted: rgba(255, 255, 255, 0.68); --nav-hover: rgba(255, 255, 255, 0.10); --nav-active-bg: #ffffff; --nav-active-text: #2a3879; --nav-rule: rgba(255, 255, 255, 0.16);
+  --heat-up: #166b3b; --heat-down: #b3261e; --bridge-up: #3c8c6e; --bridge-down: #c0473f; --weekend: #eef0f5;
   --shadow: 0 1px 2px rgba(16, 24, 40, 0.06), 0 1px 3px rgba(16, 24, 40, 0.08);
   /* names the chart code reads */
   --color-panel: var(--surface); --color-fg: var(--text); --color-fg-muted: var(--text-muted);
@@ -31,6 +33,8 @@
   --tbl-head-bg: #2c3762; --tbl-head-text: #f1f3fa; --tbl-stripe: #202534; --tbl-hover: #2a3043;
   --tone-over-bg: rgba(111, 207, 143, 0.14); --tone-over-text: #7fdc9e; --tone-short-bg: rgba(255, 138, 128, 0.14); --tone-short-text: #ff9a90; --tone-warn-bg: rgba(242, 192, 99, 0.14); --tone-warn-text: #f2c063;
   --on-brand: #12151c;
+  --nav-bg: #2b3170; --nav-active-bg: rgba(255, 255, 255, 0.20); --nav-active-text: #ffffff;
+  --heat-up: #6fcf8f; --heat-down: #ff8a80; --bridge-up: #5cbf94; --bridge-down: #ff8a80; --weekend: #1f2330;
   --cds-series-1: #8ea2ff; --cds-chart-grid: #262b38; --cds-chart-axis: #3a4152; --cds-chart-reference: #a3a9b8; --cds-chart-muted: #4b5470; --cds-chart-status-critical: #ff8a80;
   --cds-surface-popover: #222734; --cds-shadow-popover: 0 6px 20px rgba(0, 0, 0, .45);
   color-scheme: dark;
@@ -44,21 +48,19 @@ a { color: var(--brand-blue); }
 .dash-skeleton { display: inline-block; min-width: 4ch; color: transparent !important; border-radius: 4px; background: color-mix(in srgb, var(--text) 10%, transparent); }
 
 /* ---------- shell ---------- */
-.app { display: grid; grid-template-columns: 232px minmax(0, 1fr); min-height: 100vh; }
-.sidebar { background: var(--surface); border-right: 1px solid var(--border); padding: 16px 12px; display: flex; flex-direction: column; gap: 4px; position: sticky; top: 0; height: 100vh; overflow-y: auto; }
-.sidebar .logo { padding: 4px 8px 16px; line-height: 0; }
+.app { display: grid; grid-template-columns: 232px minmax(0, 1fr); min-height: 100vh; background: linear-gradient(to right, var(--nav-bg) 232px, var(--bg) 232px); }
+.sidebar { background: var(--nav-bg); color: var(--nav-text); padding: 18px 12px; display: flex; flex-direction: column; gap: 2px; position: sticky; top: 0; height: 100vh; overflow-y: auto; }
+.sidebar :focus-visible { outline-color: #ffffff; }
+.sidebar .logo { padding: 6px 8px 10px; line-height: 0; text-align: center; }
 .sidebar .logo img { width: 150px; height: auto; }
-.logo-dark { display: none; }
-:root[data-theme="dark"] .logo-light { display: none; }
-:root[data-theme="dark"] .logo-dark { display: inline; }
-.nav-link { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 10px; border-radius: 8px; color: var(--text); text-decoration: none; font-size: 15px; }
-.nav-link:hover { background: var(--surface-2); }
-.nav-link[aria-current="page"] { background: var(--brand-blue-50); color: var(--brand-blue); font-weight: 600; }
-.nav-count { font-size: 11px; font-weight: 700; color: #fff; background: var(--short); border-radius: 999px; padding: 1px 7px; }
-:root[data-theme="dark"] .nav-count { color: #12151c; }
-.nav-section { margin-top: 16px; padding: 0 10px; font-size: 12px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; }
+.app-name { margin: 0 4px 10px; padding: 0 4px 14px; border-bottom: 1px solid var(--nav-rule); text-align: center; font-size: 12px; font-weight: 700; letter-spacing: 0.12em; line-height: 1.5; text-transform: uppercase; color: var(--nav-muted); }
+.nav-link { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 10px; border-radius: 8px; color: var(--nav-text); text-decoration: none; font-size: 14.5px; font-weight: 600; }
+.nav-link:hover { background: var(--nav-hover); }
+.nav-link[aria-current="page"] { background: var(--nav-active-bg); color: var(--nav-active-text); }
+.nav-count { font-size: 11px; font-weight: 700; color: #fff; background: #c0392b; border-radius: 999px; padding: 1px 7px; }
+.nav-section { margin-top: 14px; padding: 0 10px 2px; font-size: 11.5px; color: var(--nav-muted); text-transform: uppercase; letter-spacing: 0.06em; }
 .nav-user { padding: 6px 10px 2px; font-weight: 600; }
-.nav-role { padding: 0 10px 6px; font-size: 12px; color: var(--text-muted); }
+.nav-role { padding: 0 10px 6px; font-size: 12px; color: var(--nav-muted); }
 .main { min-width: 0; padding: 20px 28px 40px; }
 .topbar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
 .topbar h1 { font-size: 26px; margin: 0; margin-right: auto; color: var(--text); }
@@ -87,11 +89,13 @@ a { color: var(--brand-blue); }
 
 /* Narrow screens: navigation on top, as in Executive Pulse */
 @media (max-width: 860px), (orientation: landscape) and (max-height: 500px) {
-  .app { grid-template-columns: minmax(0, 1fr); }
-  .sidebar { position: static; height: auto; flex-direction: row; flex-wrap: wrap; border-right: 0; border-bottom: 1px solid var(--border); padding: 12px 16px; }
-  .sidebar .logo { flex-basis: 100%; padding: 0 6px 6px; }
+  .app { grid-template-columns: minmax(0, 1fr); background: var(--bg); }
+  .sidebar { position: static; height: auto; flex-direction: row; flex-wrap: wrap; padding: 12px 16px; }
+  .sidebar .logo { padding: 0 6px 6px; text-align: left; }
   .sidebar .logo img { width: 96px; }
+  .app-name { flex: 1 1 auto; align-self: center; border: 0; margin: 0; padding: 0 0 6px 8px; text-align: left; font-size: 11px; }
   .nav-section, .nav-user, .nav-role { display: none; }
+  .nav-break { flex-basis: 100%; height: 0; }
   .nav-link { font-size: 14px; padding: 6px 10px; }
   .main { padding: 16px; }
   .topbar h1 { font-size: 21px; flex-basis: 100%; }
@@ -196,11 +200,57 @@ a { color: var(--brand-blue); }
 .cc-fail::before { content: "▼"; color: var(--short); font-size: 10px; }
 .cc-defs { margin: 0; padding-left: 1.1rem; font-size: 13px; color: var(--text-muted); line-height: 1.6; columns: 2 18rem; column-gap: 32px; }
 .app-footer { display: flex; align-items: center; gap: 12px; margin-top: 32px; padding-top: 14px; border-top: 1px solid var(--border); color: var(--text-muted); font-size: 12px; }
+/* ---------- performance pages ---------- */
+.pf-bar { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 16px; display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; }
+.pf-bar .field select, .pf-input { min-width: 10rem; }
+.pf-input { font: inherit; font-size: 14px; color: var(--text); background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 7px 10px; }
+.pf-compare { font-size: 13px; color: var(--text-muted); padding-bottom: 9px; }
+.kpi-row.pf-kpis { grid-template-columns: repeat(auto-fill, minmax(min(100%, 172px), 1fr)); }
+.pf-kpis .kpi-value { font-size: 22px; }
+.pf-tabs { display: inline-flex; flex-wrap: wrap; gap: 6px; }
+.pf-tabs .cc-pill { padding: 3px 10px; font-size: 12.5px; }
+.pf-loading { display: flex; align-items: center; justify-content: center; min-height: 120px; color: var(--text-muted); font-size: 13px; }
+.cc-scroll.pf-tall { max-height: 40rem; }
+.pf-table th button small { display: block; font-size: 10.5px; font-weight: 500; opacity: 0.8; }
+.pf-table td.pf-label { white-space: nowrap; min-width: 14rem; }
+.pf-table .pf-name { font-weight: 600; }
+.pf-table .pf-kid { font-weight: 500; }
+.pf-table .pf-sub { margin-left: 8px; font-size: 11.5px; color: var(--text-muted); }
+.pf-exp-gap { display: inline-block; width: 1.5rem; margin-right: 4px; }
+.pf-strong { font-weight: 650; }
+.pf-up { color: var(--over); font-weight: 600; }
+.pf-down { color: var(--short); font-weight: 600; }
+.cc-table.pf-table tbody tr.pf-l1 > td { background: var(--brand-blue-50); font-size: 12.5px; }
+.cc-table.pf-table tbody tr.pf-l2 > td, .cc-table.pf-table tbody tr.pf-l3 > td { background: color-mix(in srgb, var(--brand-blue-50) 55%, var(--surface)); font-size: 12.5px; }
+.cc-table.pf-table tbody tr:hover > td { background: var(--tbl-hover); }
+.cc-table.pf-table tfoot td { position: sticky; bottom: 0; z-index: 2; background: var(--surface-2); border-top: 2px solid var(--tbl-head-bg); font-weight: 700; padding: 9px 8px; white-space: nowrap; }
+.cc-table.pf-table th.pf-sep, .cc-table.pf-table td.pf-sep { border-left: 2px solid var(--border); }
+/* first column stays put while a wide matrix scrolls sideways */
+.pf-matrix td.pf-label { position: sticky; left: 0; z-index: 1; box-shadow: 1px 0 0 var(--border); }
+.pf-matrix th:first-child { position: sticky; left: 0; z-index: 3; }
+.pf-matrix tfoot td.pf-label { z-index: 3; }
+.pf-matrix td.cc-num { min-width: 4.2rem; }
+.pf-daily td.cc-num { min-width: 3.4rem; padding: 8px 5px; }
+.cc-table.pf-table th.pf-wkend { background: color-mix(in srgb, var(--tbl-head-bg) 78%, #000); }
+.cc-table.pf-table tbody tr > td.pf-wkend { background-image: linear-gradient(var(--weekend), var(--weekend)); background-blend-mode: multiply; }
+/* heat: change against last year, shade plus the arrow or sign in the text so colour is never the only cue */
+.cc-table.pf-table tbody tr > td[data-h="1"], .cc-table.pf-table tfoot tr > td[data-h="1"], .pf-heat-sw[data-h="1"] { background: color-mix(in srgb, var(--heat-up) 12%, var(--surface)); }
+.cc-table.pf-table tbody tr > td[data-h="2"], .cc-table.pf-table tfoot tr > td[data-h="2"], .pf-heat-sw[data-h="2"] { background: color-mix(in srgb, var(--heat-up) 24%, var(--surface)); }
+.cc-table.pf-table tbody tr > td[data-h="3"], .cc-table.pf-table tfoot tr > td[data-h="3"], .pf-heat-sw[data-h="3"] { background: color-mix(in srgb, var(--heat-up) 38%, var(--surface)); }
+.cc-table.pf-table tbody tr > td[data-h="-1"], .cc-table.pf-table tfoot tr > td[data-h="-1"], .pf-heat-sw[data-h="-1"] { background: color-mix(in srgb, var(--heat-down) 12%, var(--surface)); }
+.cc-table.pf-table tbody tr > td[data-h="-2"], .cc-table.pf-table tfoot tr > td[data-h="-2"], .pf-heat-sw[data-h="-2"] { background: color-mix(in srgb, var(--heat-down) 24%, var(--surface)); }
+.cc-table.pf-table tbody tr > td[data-h="-3"], .cc-table.pf-table tfoot tr > td[data-h="-3"], .pf-heat-sw[data-h="-3"] { background: color-mix(in srgb, var(--heat-down) 38%, var(--surface)); }
+.pf-heat-sw { display: inline-block; width: 14px; height: 10px; border-radius: 2px; vertical-align: -1px; border: 1px solid var(--border); }
+.pf-heat-sw + .pf-heat-sw { margin-left: 2px; }
+.pf-heat-sw:last-of-type { margin-right: 4px; }
 @media (max-width: 860px) {
   .kpi-row { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
   .kpi { padding: 10px; }
   .kpi-value { font-size: 19px; }
   .kpi-label, .kpi-sub { font-size: 12px; }
+  .pf-bar .field { flex: 1 1 9rem; }
+  .pf-bar .field select, .pf-input { min-width: 0; width: 100%; }
+  .pf-table td.pf-label { min-width: 11rem; }
 }
 </style>
 <script>
@@ -217,7 +267,10 @@ try { const t = localStorage.getItem('cp-theme'); if (t === 'dark' || t === 'lig
   const notify = () => { if (queued) return; queued = true; requestAnimationFrame(() => { queued = false; subs.forEach((fn) => { try { fn(); } catch (e) { console.error(e); } }); }); };
   const load = (id, refresh) => {
     cache[id] = Object.assign({ status: 'loading', data: [], columns: [], meta: [] }, cache[id] && cache[id].status === 'ok' ? { status: 'ok', data: cache[id].data, columns: cache[id].columns, refreshing: true } : {});
-    fetch('/api/data/' + encodeURIComponent(id) + (refresh ? '?refresh=1' : ''))
+    // an id may carry parameters, e.g. 'margin_detail?month=2026-09'
+    const [base, query] = id.split('?');
+    const qs = [query, refresh ? 'refresh=1' : ''].filter(Boolean).join('&');
+    fetch('/api/data/' + encodeURIComponent(base) + (qs ? '?' + qs : ''))
       .then((r) => { if (r.status === 401) { location.href = '/signin'; throw new Error('signed out'); } return r.json().then((b) => ({ ok: r.ok, b })); })
       .then(({ ok, b }) => { cache[id] = ok ? { status: 'ok', data: b.rows, columns: b.columns, meta: [], refreshing: false } : { status: 'error', data: [], message: b.error }; notify(); })
       .catch((e) => { cache[id] = { status: 'error', data: [], message: String(e) }; notify(); });

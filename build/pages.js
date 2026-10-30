@@ -1,13 +1,13 @@
   // ---------- pages: sidebar links ----------
-  const PAGES = ['overview', 'sales', 'stock', 'aging', 'customers', 'alerts'];
-  const TITLES = { overview: 'Category Overview', sales: 'Sales vs Target', stock: 'Stock & Cover', aging: 'Aging & Expiry', customers: 'Customers & Margin', alerts: 'Alerts' };
+  const PAGES = ['overview', 'summary', 'sales', 'brandtrack', 'dailytrack', 'margin', 'customers', 'stock', 'aging', 'alerts'];
+  const TITLES = { overview: 'Category Overview', summary: 'Sales Summary', sales: 'Sales vs Target', brandtrack: 'Brand Monthly Tracking', dailytrack: 'Daily Tracking', margin: 'Margin Tracker', customers: 'Customers & Leakage', stock: 'Stock & Cover', aging: 'Aging & Expiry', alerts: 'Alerts' };
   function showPage(p) {
     if (!PAGES.includes(p)) p = 'overview';
     local.page = p;
     PAGES.forEach((id) => { $('#' + id).hidden = id !== p; });
     document.querySelectorAll('.nav-link[data-page]').forEach((a) => { if (a.dataset.page === p) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current'); });
     $('#cc-page-title').textContent = TITLES[p];
-    document.title = TITLES[p] + ' · Category Pulse';
+    document.title = TITLES[p] + ' · Category Insights & Performance';
     dash.setLink(p);
     redraw();
     window.scrollTo(0, 0);
@@ -38,5 +38,9 @@
     if (p === 'aging') { drawAgingChart('#ch-life', 'Shelf life left', ['0-30 days']); drawAgingChart('#ch-age', 'Days in stock', ['91-180 days', 'Over 180 days']); drawExpiry(); }
     if (p === 'customers') { drawCustomers(); drawLeak(); }
     if (p === 'alerts') drawAlerts();
+    if (p === 'summary') drawSummary();
+    if (p === 'brandtrack') drawBrandTrack();
+    if (p === 'dailytrack') drawDailyTrack();
+    if (p === 'margin') drawMargin();
   }
 

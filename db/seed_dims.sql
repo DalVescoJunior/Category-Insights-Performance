@@ -76,7 +76,7 @@ with tpl(category_id, t, cost, storage, uom) as (values
  (8,'Frying Oil 20L',95,'Ambient','CS'),(8,'Extra Virgin Olive Oil 5L',48,'Ambient','PC'),(8,'Penne Pasta 5kg',32,'Ambient','CS'),
  (8,'Basmati Rice 20kg',70,'Ambient','BAG'),(8,'Tomato Passata',40,'Ambient','CS'),(8,'Black Pepper Ground 1kg',26,'Ambient','PC')
 ), pick as (
- select b.brand_id, b.name bname, c.category_id, c.margin_floor, tpl.*,
+ select b.brand_id, b.name bname, c.margin_floor, tpl.*,
         row_number() over (order by b.brand_id, tpl.t) rn,
         hashtext(b.name || tpl.t) h
  from brand b join category c using (category_id) join tpl using (category_id)

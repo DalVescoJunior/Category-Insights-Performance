@@ -1,7 +1,8 @@
 -- Reporting views. Every figure on the dashboard is computed here.
 -- Country = the brand's country of origin (3-letter code). Views rolled up by scope also carry a country column:
 -- null = all countries, otherwise one country's figures.
-drop view if exists v_alerts, v_margin_leak, v_customers, v_channel, v_aging, v_monthly, v_daily, v_brand, v_kpi, v_sku, v_item_base cascade;
+drop view if exists v_perf_target, v_perf, v_daily_detail, v_dim_item, v_dim_customer, v_dim_org, v_dim_rep, v_alerts, v_margin_leak, v_customers, v_channel, v_aging, v_monthly, v_daily, v_brand, v_kpi, v_sku, v_item_base cascade;
+drop function if exists f_margin_detail(text);
 create or replace view v_period as
 select max(billing_date) as_of,
        date_trunc('month', max(billing_date))::date as month_start,
@@ -448,3 +449,98 @@ select row_number() over (order by severity, value_at_stake desc)::int alert_id,
        alert_type, category, manager, assistant, country, country_rollup, subject, detail,
        round(greatest(value_at_stake, 0), 0) value_at_stake, action
 from a;
+
+-- ---------- Performance pages (sales summary, brand by month, daily tracking, margin tracker) ----------
+-- These return lean rows keyed by codes; the page joins them to the small lookup views below and does the grouping,
+-- so one dataset serves every breakdown (sales organisation, division, brand, item, customer, salesperson).
+
+-- Lookups
+create or replace view v_dim_item as
+select i.item_code item, i.description, i.uom, b.name brand, c.name category, c.manager, b.country_code country, c.margin_floor
+from item i join brand b using (brand_id) join category c using (category_id);
+create or replace view v_dim_customer as
+select customer_code cu, name, segment, sub_segment, division, org_code org from customer;
+create or replace view v_dim_org as select org_code org, name from org;
+create or replace view v_dim_rep as select sp_id sp, name, division from salesperson;
+
+-- Current year by month, sales organisation (hub), customer division and item, against the same month last year
+-- (the same days for the current month, so the comparison is like-for-like).
+-- The change against last year splits into four parts that add up to sales - ly_sales:
+--   vol   = (qty - LY qty) x LY price          more or fewer units of items sold in both years
+--   price = what is left for those items       price and discount changes
+--   new   = items sold now but not last year
+--   lost  = items sold last year but not now (negative)
+create or replace view v_perf as
+with p as (select * from v_period),
+ty as (
+  select date_trunc('month', l.billing_date)::date m, l.org_code, cu.division, l.item_code,
+         sum(l.net_value) s, sum(l.cost_value) c, sum(l.qty) q
+  from sales_line l join customer cu using (customer_code), p
+  where l.billing_date >= p.year_start
+  group by 1, 2, 3, 4
+),
+ly as (
+  select (date_trunc('month', l.billing_date) + interval '1 year')::date m, l.org_code, cu.division, l.item_code,
+         sum(l.net_value) s, sum(l.cost_value) c, sum(l.qty) q
+  from sales_line l join customer cu using (customer_code), p
+  where l.billing_date >= p.year_start - interval '1 year' and l.billing_date <= p.as_of - interval '1 year'
+  group by 1, 2, 3, 4
+),
+j as (
+  select m, org_code, division, item_code,
+         round(coalesce(ty.s, 0), 0) s, round(coalesce(ty.c, 0), 0) c, coalesce(ty.q, 0) q,
+         round(coalesce(ly.s, 0), 0) ly_s, round(coalesce(ly.c, 0), 0) ly_c, coalesce(ly.q, 0) ly_q
+  from ty full join ly using (m, org_code, division, item_code)
+),
+v as (
+  select j.*, case when q > 0 and ly_q > 0 then round((q - ly_q) * ly_s / ly_q, 0) end vol from j
+)
+select to_char(m, 'YYYY-MM') as month, org_code org, division, item_code item,
+       s sales, c cost, round(q, 1) qty, ly_s ly_sales, ly_c ly_cost, round(ly_q, 1) ly_qty,
+       coalesce(vol, 0) vol,
+       case when vol is not null then s - ly_s - vol else 0 end price,
+       case when vol is null and ly_q <= 0 then s - ly_s else 0 end new,
+       case when vol is null and ly_q > 0 then s - ly_s else 0 end lost
+from v;
+
+-- Monthly targets for the current year by sales organisation and brand
+create or replace view v_perf_target as
+select to_char(t.month, 'YYYY-MM') as month, t.org_code org, b.name brand, round(t.target_value, 0) target
+from sales_target t join brand b using (brand_id), v_period p
+where t.month >= p.year_start and t.month < p.year_start + interval '1 year';
+
+-- Current month line detail for daily tracking: k = 'ty' (this month by day), 'ly' (same days last year, by day)
+-- or 'pm' (the whole previous month, d null), by salesperson, customer and item
+create or replace view v_daily_detail as
+with p as (select * from v_period)
+select extract(day from billing_date)::int d, 'ty' k, sp_id sp, customer_code cu, item_code it,
+       round(sum(qty), 1) q, round(sum(net_value), 0) s, round(sum(cost_value), 0) c
+from sales_line, p where billing_date >= p.month_start
+group by 1, 3, 4, 5
+union all
+select extract(day from billing_date)::int, 'ly', sp_id, customer_code, item_code,
+       round(sum(qty), 1), round(sum(net_value), 0), round(sum(cost_value), 0)
+from sales_line, p where billing_date between p.month_start - interval '1 year' and p.as_of - interval '1 year'
+group by 1, 3, 4, 5
+union all
+select null, 'pm', sp_id, customer_code, item_code,
+       round(sum(qty), 1), round(sum(net_value), 0), round(sum(cost_value), 0)
+from sales_line, p where billing_date >= p.month_start - interval '1 month' and billing_date < p.month_start
+group by 3, 4, 5;
+
+-- One month of sales by item, customer and salesperson for the margin tracker, with the same month last year
+-- (same days when it is the current month). p_month = 'YYYY-MM'; null = the current month.
+create or replace function f_margin_detail(p_month text)
+returns table (k text, sp smallint, cu int, it int, q numeric, s numeric, c numeric)
+language sql stable as $$
+  with p as (select * from v_period),
+  w as (
+    select m, least((m + interval '1 month' - interval '1 day')::date, p.as_of) e
+    from p, lateral (select coalesce(to_date(p_month, 'YYYY-MM'), p.month_start) m) x
+  )
+  select 'ty', sp_id, customer_code, item_code, round(sum(qty), 1), round(sum(net_value), 2), round(sum(cost_value), 2)
+  from sales_line, w where billing_date between w.m and w.e group by 2, 3, 4
+  union all
+  select 'ly', sp_id, customer_code, item_code, round(sum(qty), 1), round(sum(net_value), 2), round(sum(cost_value), 2)
+  from sales_line, w where billing_date between w.m - interval '1 year' and w.e - interval '1 year' group by 2, 3, 4
+$$;
