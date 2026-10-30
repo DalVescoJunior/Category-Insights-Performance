@@ -232,6 +232,91 @@
     if (opts.onClick) g.attr('cursor', 'pointer').on('click', (ev, d) => opts.onClick(d));
   }
 
+  // ---------- bars against target, in the Executive Pulse style ----------
+  // A bar is blue up to the smaller of sales and target, then green for the part over target or red for the shortfall.
+  // In the current month the light part runs on to the full month target and a dark tick marks the target to date.
+  // Months still to come show the target in grey.
+  const shortNum = (v) => { const a = Math.abs(v); return a >= 1e6 ? (v / 1e6).toFixed(1) + 'M' : a >= 1e4 ? Math.round(v / 1e3) + 'K' : a >= 1e3 ? (v / 1e3).toFixed(1) + 'K' : String(Math.round(v)); };
+  const HALO = 'paint-order: stroke; stroke: var(--surface); stroke-width: 3px; stroke-linejoin: round; ';
+  // r: { s, t (the target the bar is judged against), full (full month target, current month only), pace (tick) }
+  function targetSegs(g, x0, w, y, r) {
+    const rect = (a, b, fill) => { if (b - a <= 0) return; g.append('rect').attr('x', x0).attr('width', w).attr('y', y(b)).attr('height', y(a) - y(b)).attr('fill', fill); };
+    const s = r.s || 0, t = r.t;
+    if (r.full !== null && r.full !== undefined && r.full > s) rect(s, r.full, 'var(--bar-remain)');
+    if (t === null || t === undefined) rect(0, s, 'var(--cds-series-1)');
+    else {
+      rect(0, Math.min(s, t), 'var(--cds-series-1)');
+      if (s > t) rect(t, s, 'var(--bridge-up)');
+      else if (r.full === null || r.full === undefined) rect(s, t, 'var(--bridge-down)');
+      else if (s < t) rect(s, t, 'var(--bridge-down)');
+    }
+    if (r.pace !== null && r.pace !== undefined) g.append('line').attr('x1', x0 + w * 0.2).attr('x2', x0 + w * 0.8).attr('y1', y(r.pace)).attr('y2', y(r.pace)).attr('stroke', 'var(--pace)').attr('stroke-width', 3);
+  }
+  // % against target (green or red) over the achieved amount, above the bar
+  function targetLabels(g, cx, top, r, fmt, small) {
+    const pct = r.t ? r.s / r.t - 1 : null;
+    const fs = small ? 10.5 : 12;
+    g.append('text').attr('x', cx).attr('y', top - 4).attr('text-anchor', 'middle').attr('style', HALO + `fill: var(--color-fg); font-size: ${fs}px; font-weight: 600`).text(fmt(r.s));
+    if (pct !== null && isFinite(pct)) g.append('text').attr('x', cx).attr('y', top - 6 - fs).attr('text-anchor', 'middle')
+      .attr('style', HALO + `fill: var(${pct >= 0 ? '--over' : '--short'}); font-size: ${fs}px; font-weight: 700`).text(sgn(pct) + Math.abs(pct * 100).toFixed(1) + '%');
+  }
+  // Sales by month against target for the year (Sales vs Target page)
+  function drawMonthly() {
+    const box = $('#ch-monthly'); if (chartFail(box, 'monthly')) return;
+    const s = scopeInfo(); const a = asOfInfo();
+    const data = byCountry(rowsOf('monthly')).filter((r) => r.scope === s.scope).map((r) => {
+      const m = String(r.month).slice(0, 7), t = N(r.target);
+      const kind = !a ? 'past' : m < a.cur ? 'past' : m === a.cur ? 'cur' : 'future';
+      const pace = kind === 'cur' && t !== null ? t * a.day / a.dim : null;
+      return { m, kind, s: kind === 'future' ? null : N(r.sales), ly: N(r.ly_sales), full: kind === 'cur' ? t : null, t: kind === 'cur' ? pace : t, pace, target: t };
+    });
+    box.querySelectorAll('svg').forEach((n) => n.remove());
+    if (!data.length) return;
+    const W = box.clientWidth || 400, H = 300;
+    const svg = d3.select(box).append('svg').attr('width', '100%').attr('viewBox', `0 0 ${W} ${H}`).attr('height', H);
+    const ymax = d3.max(data, (r) => Math.max(r.s || 0, r.target || 0, r.ly || 0)) || 1;
+    const y = d3.scaleLinear([0, ymax], [H - 24, 44]).nice();
+    const ticks = y.ticks(4);
+    const ml = measure(svg, ticks.map((v) => compact.format(v))) + 10;
+    const x = d3.scaleBand(data.map((r) => r.m), [ml, W - 4]).padding(0.18);
+    svg.append('g').selectAll('line').data(ticks).join('line').attr('x1', ml).attr('x2', W - 4).attr('y1', (v) => y(v)).attr('y2', (v) => y(v)).attr('stroke', 'var(--cds-chart-grid)');
+    svg.append('g').selectAll('text').data(ticks).join('text').attr('x', ml - 8).attr('y', (v) => y(v)).attr('dy', '0.32em').attr('text-anchor', 'end').text((v) => compact.format(v));
+    const every = x.bandwidth() < 22 ? 2 : 1;
+    svg.append('g').selectAll('text').data(data.filter((r, i) => i % every === 0)).join('text').attr('x', (r) => x(r.m) + x.bandwidth() / 2).attr('y', H - 6).attr('text-anchor', 'middle').text((r) => monShort(r.m));
+    const bw = x.bandwidth(), small = bw < 52, labels = bw >= 30;
+    const g = svg.append('g');
+    data.forEach((r) => {
+      const x0 = x(r.m), cx = x0 + bw / 2;
+      if (r.kind === 'future') {
+        if (r.target) g.append('rect').attr('x', x0).attr('width', bw).attr('y', y(r.target)).attr('height', y(0) - y(r.target)).attr('fill', 'var(--bar-future)');
+      } else if (r.s !== null) targetSegs(g, x0, bw, y, r);
+      // the target inside the bar
+      const tv = r.kind === 'cur' ? r.full : r.target;
+      if (labels && tv && y(0) - y(Math.min(tv, r.kind === 'future' ? tv : r.s || 0)) > 40) {
+        const ty = (y(0) + y(Math.min(tv, r.kind === 'future' ? tv : r.s))) / 2;
+        const fill = r.kind === 'future' ? 'var(--color-fg)' : 'var(--on-bar)';
+        g.append('text').attr('x', cx).attr('y', ty - 2).attr('text-anchor', 'middle').attr('style', `fill: ${fill}; font-size: ${small ? 10 : 11}px; opacity: .9`).text('Target');
+        g.append('text').attr('x', cx).attr('y', ty + (small ? 11 : 13)).attr('text-anchor', 'middle').attr('style', `fill: ${fill}; font-size: ${small ? 11 : 13}px; font-weight: 700`).text(shortNum(tv));
+      }
+      if (labels && r.kind !== 'future' && r.s !== null) targetLabels(g, cx, y(Math.max(r.s, r.t || 0, r.kind === 'cur' ? r.full || 0 : 0)), r, shortNum, small);
+    });
+    svg.append('g').selectAll('circle').data(data.filter((r) => r.ly !== null)).join('circle').attr('cx', (r) => x(r.m) + bw - Math.min(8, bw / 4)).attr('cy', (r) => y(r.ly)).attr('r', 3.5).attr('fill', 'var(--cds-chart-muted)').attr('stroke', 'var(--color-panel)').attr('stroke-width', 2);
+    svg.append('line').attr('x1', ml).attr('x2', W - 4).attr('y1', y(0)).attr('y2', y(0)).attr('stroke', 'var(--cds-chart-axis)');
+    const tip = tipFor(box);
+    svg.append('g').selectAll('rect').data(data).join('rect').attr('x', (r) => x(r.m) - (x.step() - x.bandwidth()) / 2).attr('width', x.step()).attr('y', 0).attr('height', H).attr('fill', 'transparent')
+      .on('pointermove', (ev, r) => {
+        const head = d3.utcFormat('%B %Y')(monDate(r.m)) + (r.s !== null && r.t ? ' · ' + fmtDelta(r.s / r.t - 1) + (r.kind === 'cur' ? ' vs target to date' : ' vs target') : '');
+        tipRows(tip, head, [
+          ['var(--cds-series-1)', 'Sales', r.s === null ? '—' : compact.format(r.s)],
+          ...(r.kind === 'cur' && r.pace !== null ? [['var(--pace)', 'Target to date', compact.format(r.pace)]] : []),
+          ['var(--cds-chart-reference)', r.kind === 'cur' ? 'Month target' : 'Target', r.target === null ? '—' : compact.format(r.target)],
+          ['var(--cds-chart-muted)', 'Last year', r.ly === null ? '—' : compact.format(r.ly)],
+        ]);
+        const [px, py] = d3.pointer(ev, box); placeTip(box, tip, px, py);
+      })
+      .on('pointerleave', () => { tip.hidden = true; });
+  }
+
   // ======================= Sales Summary =======================
   local.sm = { period: 'mtd', moversBy: 'brand', order: 'org' };
   const smPeriodSel = $('#sm-period');
@@ -382,7 +467,7 @@
     const label = { sales: 'Sales', qty: 'Quantity', profit: 'Gross profit', gm: 'Gross margin %' }[m];
     const brand = params().brand;
     $('#bt-chart-title').textContent = label + ' by month · ' + (brand || (scopeInfo().scope === ALL ? 'all brands' : scopeInfo().scope));
-    $('#bt-chart-note').textContent = 'Current month: 1–' + a.day + ' against the same days last year' + (m === 'sales' && local.bt.div ? ' · no target by division' : '');
+    $('#bt-chart-note').textContent = 'Current month: 1–' + a.day + ' against the same days last year and the target to date' + (m === 'sales' && local.bt.div ? ' · no target by division' : '');
     const data = months.map((mm) => {
       const x = tot.v.byM[mm];
       let t = null;
@@ -394,11 +479,11 @@
   // this year and last year side by side per month, optional target tick
   function groupedBars(box, data, axisFmt, tipFmt, pct) {
     clearBox(box);
-    const W = box.clientWidth || 400, H = 240;
+    const W = box.clientWidth || 400, H = 280;
     const svg = d3.select(box).append('svg').attr('width', '100%').attr('viewBox', `0 0 ${W} ${H}`).attr('height', H);
     const vals = data.flatMap((r) => [r.s, r.ly, r.t]).filter((v) => v !== null && isFinite(v));
-    const lo = Math.min(0, d3.min(vals) || 0), hi = Math.max(0, d3.max(vals) || 1) * 1.12;
-    const y = d3.scaleLinear([lo, hi], [H - 24, 16]).nice();
+    const lo = Math.min(0, d3.min(vals) || 0), hi = Math.max(0, d3.max(vals) || 1);
+    const y = d3.scaleLinear([lo, hi], [H - 24, 36]).nice();
     const ticks = y.ticks(4);
     const ml = measure(svg, ticks.map(axisFmt)) + 10;
     const x = d3.scaleBand(data.map((r) => r.m), [ml, W - 4]).padding(0.25);
@@ -408,17 +493,29 @@
     svg.append('g').selectAll('text').data(data).join('text').attr('x', (r) => x(r.m) + x.bandwidth() / 2).attr('y', H - 6).attr('text-anchor', 'middle').text((r) => monShort(r.m));
     const bar = (k, color) => svg.append('g').selectAll('rect').data(data.filter((r) => r[k] !== null)).join('rect')
       .attr('x', (r) => x(r.m) + xi(k)).attr('width', xi.bandwidth()).attr('y', (r) => Math.min(y(r[k]), y(0))).attr('height', (r) => Math.abs(y(0) - y(r[k]))).attr('rx', 3).attr('fill', color);
-    bar('ly', 'var(--cds-chart-muted)'); bar('s', 'var(--cds-series-1)');
+    bar('ly', 'var(--cds-chart-muted)');
+    // this year's bar is coloured against target where there is one (the current month against target to date)
+    const tg = svg.append('g');
+    data.filter((r) => r.s !== null).forEach((r) => {
+      if (r.t !== null && r.s >= 0) targetSegs(tg, x(r.m) + xi('s'), xi.bandwidth(), y, { s: r.s, t: r.t });
+      else tg.append('rect').attr('x', x(r.m) + xi('s')).attr('width', xi.bandwidth()).attr('y', Math.min(y(r.s), y(0))).attr('height', Math.abs(y(0) - y(r.s))).attr('fill', 'var(--cds-series-1)');
+    });
     // value on top of each bar (below it when negative), with a halo so it stays readable across the target line;
     // when the bars are narrow only this year's value is shown
-    const short = pct ? axisFmt : (v) => { const a = Math.abs(v); return a >= 1e6 ? (v / 1e6).toFixed(2) + 'M' : a >= 1e4 ? Math.round(v / 1e3) + 'K' : a >= 1e3 ? (v / 1e3).toFixed(1) + 'K' : String(Math.round(v)); };
+    const short = pct ? axisFmt : shortNum;
     const labels = (k, style) => svg.append('g').selectAll('text').data(data.filter((r) => r[k] !== null && r[k] !== 0)).join('text')
       .attr('x', (r) => x(r.m) + xi(k) + xi.bandwidth() / 2).attr('y', (r) => (r[k] < 0 ? y(r[k]) + 12 : y(r[k]) - 4)).attr('text-anchor', 'middle')
-      .attr('style', 'paint-order: stroke; stroke: var(--surface); stroke-width: 3px; stroke-linejoin: round; ' + style).text((r) => short(r[k]));
-    svg.append('g').selectAll('line').data(data.filter((r) => r.t !== null)).join('line').attr('x1', (r) => x(r.m) - 2).attr('x2', (r) => x(r.m) + x.bandwidth() + 2).attr('y1', (r) => y(r.t)).attr('y2', (r) => y(r.t)).attr('stroke', 'var(--cds-chart-reference)').attr('stroke-width', 2);
+      .attr('style', HALO + style).text((r) => short(r[k]));
     svg.append('line').attr('x1', ml).attr('x2', W - 4).attr('y1', y(0)).attr('y2', y(0)).attr('stroke', 'var(--cds-chart-axis)');
     if (xi.bandwidth() >= 30) labels('ly', 'fill: var(--text-muted); font-size: 10.5px');
-    if (xi.bandwidth() >= 16) labels('s', 'fill: var(--color-fg); font-size: 11px; font-weight: 600');
+    if (xi.bandwidth() >= 16) {
+      const withT = data.filter((r) => r.s !== null && r.s > 0 && r.t !== null);
+      withT.forEach((r) => targetLabels(svg, x(r.m) + xi('s') + xi.bandwidth() / 2, y(Math.max(r.s, r.t)), r, short, true));
+      const noT = new Set(withT);
+      svg.append('g').selectAll('text').data(data.filter((r) => r.s !== null && r.s !== 0 && !noT.has(r))).join('text')
+        .attr('x', (r) => x(r.m) + xi('s') + xi.bandwidth() / 2).attr('y', (r) => (r.s < 0 ? y(r.s) + 12 : y(r.s) - 4)).attr('text-anchor', 'middle')
+        .attr('style', HALO + 'fill: var(--color-fg); font-size: 11px; font-weight: 600').text((r) => short(r.s));
+    }
     const tip = tipFor(box);
     svg.append('g').selectAll('rect').data(data).join('rect').attr('x', (r) => x(r.m) - (x.step() - x.bandwidth()) / 2).attr('width', x.step()).attr('y', 0).attr('height', H).attr('fill', 'transparent')
       .on('pointermove', (ev, r) => {
